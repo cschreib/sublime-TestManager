@@ -16,7 +16,7 @@ logger = logging.getLogger('TestExplorer.status')
 
 GOTO_DEFAULT = 'list-top'
 
-TEST_EXPLORER_VIEW_TITLE = '*test-explorer*'
+TEST_EXPLORER_VIEW_TITLE = '*test-explorer*: '
 TEST_EXPLORER_VIEW_SYNTAX = 'Packages/TestExplorer/syntax/TestExplorer.tmLanguage'
 TEST_EXPLORER_VIEW_SETTINGS = {
     'translate_tabs_to_spaces': False,
@@ -259,7 +259,7 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
         if not project:
             return
 
-        title = TEST_EXPLORER_VIEW_TITLE
+        title = TEST_EXPLORER_VIEW_TITLE + os.path.splitext(os.path.basename(project))[0]
 
         view = find_view_by_settings(self.window, test_view='list')
         if not view and not refresh_only:
