@@ -7,66 +7,33 @@ import sublime
 
 logger = logging.getLogger('TestExplorer.helpers')
 
+DEFAULT_TEST_DATA_LOCATION = '.sublime-tests'
 
-NO_PROJECT_DIALOG = ("Could not find an project based on the open files and folders. Please make sure to run this command in a window with a loaded project.")
+def datetime_to_iso(time):
+    return time.strftime('')
 
+last_discovery = datetime.fromisoformat('2024-05-04T11:05:12')
+tests_list = [
+            {'name': 'Test.exe', 'status': 'failed', 'children': [
+                {'name': 'TestCase1', 'status': 'failed', 'children': [
+                    {'name': 'test_this', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_that', 'status': 'failed', 'last_run': datetime.fromisoformat('2024-05-04T11:05:12')},
+                    {'name': 'test_them', 'status': 'skipped', 'last_run': datetime.fromisoformat('2024-05-04T11:05:14')},
+                    {'name': 'test_new', 'status': 'not_run', 'last_run': None},
+                ]},
+                {'name': 'TestCase2', 'status': 'passed', 'children': [
+                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-03T13:05:12')}
+                ]},
+                {'name': 'TestCase3', 'status': 'passed', 'children': [
+                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                ]}
+            ]}
+        ]
 
 class TestProjectHelper(object):
-    # working dir remake
-    def get_dir_from_view(self, view=None):
-        d = None
-        if view is not None and view.file_name():
-            d = os.path.realpath(os.path.dirname(view.file_name()))
-            logger.info('get_dir_from_view(view=%s): %s', view.id(), d)
-        return d
-
-    def get_dirs_from_window_folders(self, window=None):
-        dirs = set()
-        if window is not None:
-            dirs = set(f for f in window.folders())
-            logger.info('get_dirs_from_window_folders(window=%s): %s', window.id(), dirs)
-        return dirs
-
-    def get_dirs_from_window_views(self, window=None):
-        dirs = set()
-        if window is not None:
-            view_dirs = [self.get_dir_from_view(v) for v in window.views()]
-            dirs = set(d for d in view_dirs if d)
-            logger.info('get_dirs_from_window_views(window=%s): %s', window.id(), dirs)
-        return dirs
-
-    def get_dirs(self, window=None):
-        dirs = set()
-        if window is not None:
-            dirs |= self.get_dirs_from_window_folders(window)
-            dirs |= self.get_dirs_from_window_views(window)
-            logger.info('get_dirs(window=%s): %s', window.id(), dirs)
-        return dirs
-
-    def get_dirs_prioritized(self, window=None):
-        dirs = list()
-        if window is not None:
-            all_dirs = self.get_dirs(window)
-            active_view_dir = self.get_dir_from_view(window.active_view())
-            if active_view_dir:
-                dirs.append(active_view_dir)
-                all_dirs.discard(active_view_dir)
-            for d in sorted(list(all_dirs), key=lambda x: len(x), reverse=True):
-                dirs.append(d)
-            logger.info('get_dirs_prioritized(window=%s): %s', window.id(), dirs)
-        return dirs
-
-    # path walking
-    def all_dirnames(self, directory):
-        dirnames = [directory]
-        while directory and directory != os.path.dirname(directory):
-            directory = os.path.dirname(directory)
-            dirnames.append(directory)
-
-        logger.info('all_dirs(directory=%s): %s', directory, dirnames)
-        return dirnames
-
-    # projects
+    # Find project and data
     def get_project(self, silent=False):
         proj = None
 
@@ -112,43 +79,93 @@ class TestProjectHelper(object):
             logger.info('get_project_from_window(window=%s, silent=%s): None (silent)', window.id(), silent)
             return
 
-        sublime.error_message(NO_PROJECT_DIALOG)
+    def get_test_data_location(self, silent=False):
+        location = None
 
+        if hasattr(self, 'view'):
+            location = self.get_test_data_location_from_view(self.view, silent=silent)
+            if self.view.window() and not location:
+                location = self.get_test_data_location_from_window(self.view.window(), silent=silent)
+        elif hasattr(self, 'window'):
+            proj = self.get_test_data_location_from_window(self.window, silent=silent)
 
-def datetime_to_iso(time):
-    return time.strftime('')
+        return location
 
-last_discovery = datetime.fromisoformat('2024-05-04T11:05:12')
-tests_list = [
-            {'name': 'Test.exe', 'status': 'failed', 'children': [
-                {'name': 'TestCase1', 'status': 'failed', 'children': [
-                    {'name': 'test_this', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_that', 'status': 'failed', 'last_run': datetime.fromisoformat('2024-05-04T11:05:12')},
-                    {'name': 'test_them', 'status': 'skipped', 'last_run': datetime.fromisoformat('2024-05-04T11:05:14')},
-                    {'name': 'test_new', 'status': 'not_run', 'last_run': None},
-                ]},
-                {'name': 'TestCase2', 'status': 'passed', 'children': [
-                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-03T13:05:12')}
-                ]},
-                {'name': 'TestCase3', 'status': 'passed', 'children': [
-                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                ]}
-            ]}
-        ]
+    def get_test_data_location_from_view(self, view=None, silent=True):
+        if view is None:
+            return
 
-class TestListHelper(object):
+        # first try the view settings (for things like status, diff, etc)
+        location = view.settings().get('test_metadata_location')
+        if location:
+            logger.info('get_test_data_location_from_view(view=%s, silent=%s): %s (view settings)', view.id(), silent, location)
+            return location
 
-    def get_last_discovery(self):
+    def get_test_data_location_from_window(self, window=None, silent=True):
+        if not window:
+            logger.info('get_test_data_location_from_window(window=%s, silent=%s): None (no window)', None, silent)
+            return
+
+        active_view = window.active_view()
+        if active_view is not None:
+            # if the active view has a setting, use that
+            location = active_view.settings().get('test_metadata_location')
+            if location:
+                logger.info('get_test_data_location_from_window(window=%s, silent=%s): %s (view settings)', window.id(), silent, location)
+                return location
+
+        # Read the location from the project file
+        data = window.project_data()
+        if 'settings' in data and 'test_metadata_location' in data['settings']:
+            base = os.path.dirname(self.window.project_file_name())
+            location = os.path.join(base, data['settings']['test_explorer_metadata_location'])
+            logger.info('get_test_data_location_from_window(window=%s, silent=%s): %s (window project)', window.id(), silent, location)
+            return location
+
+        if silent:
+            logger.info('get_test_data_location_from_window(window=%s, silent=%s): None (silent)', window.id(), silent)
+            return
+
+    def get_default_test_data_location(self):
+        if not hasattr(self, 'window'):
+            sublime.error_message('Cannot run this command without a window')
+
+        data = self.window.project_data()
+        base = os.path.dirname(self.window.project_file_name())
+        if 'folders' in data and len(data['folders']) > 0 and 'path' in data['folders'][0]:
+            base = os.path.join(base, data['folders'][0]['path'])
+
+        return os.path.normpath(os.path.join(base, DEFAULT_TEST_DATA_LOCATION))
+
+    def set_test_data_location(self, location):
+        if not hasattr(self, 'window'):
+            sublime.error_message('Cannot run this command without a window')
+
+        base = os.path.dirname(self.window.project_file_name())
+
+        data = self.window.project_data()
+        if not 'settings' in data:
+            data['settings'] = {}
+        data['settings']['test_explorer_metadata_location'] = os.path.relpath(location, start=base)
+        self.window.set_project_data(data)
+
+    # Test data
+    def get_last_discovery(self, project=None):
+        if project is None:
+            project = self.get_project()
+
         global last_discovery
         return last_discovery
 
-    def get_tests_list(self, project):
+    def get_tests_list(self, project=None):
+        if project is None:
+            project = self.get_project()
+
         global tests_list
         return tests_list
 
-    def find_item(self, lst, item_path):
+    def find_test(self):
+        lst = self.get_tests_list()
         for p in item_path:
             found = None
             if lst is None:
@@ -168,6 +185,9 @@ class TestListHelper(object):
                 lst = None
 
         return found
+
+
+class TestListHelper(TestProjectHelper):
 
     def get_tests_stats(self, tests, total_stats=None):
         for item in tests:

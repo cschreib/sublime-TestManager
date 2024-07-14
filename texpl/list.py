@@ -61,7 +61,12 @@ TEST_EXPLORER_HELP = """
 #    s = run app/suite/case, S = run all tests"""
 
 
-class TestExplorerListBuilder(TestProjectHelper, TestListHelper, SettingsHelper):
+NO_PROJECT_DIALOG = ("Could not find an project based on the open files and folders. "
+                     "Please make sure to run this command in a window with a loaded project.")
+
+NO_TEST_DATAL_LOCATION_DIALOG = ("No configured location for storing test metadata. Use default?\n\n{}?")
+
+class TestExplorerListBuilder(TestListHelper, SettingsHelper):
 
     def build_list(self, project):
         status = self.build_test_list(project)
@@ -257,7 +262,14 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
     def run(self, refresh_only=False):
         project = self.get_project(silent=True if refresh_only else False)
         if not project:
-            return
+            sublime.error_message(NO_PROJECT_DIALOG)
+
+        data_location = self.get_test_data_location()
+        if not data_location:
+            data_location = self.get_default_test_data_location()
+            if not sublime.ok_cancel_dialog(NO_TEST_DATAL_LOCATION_DIALOG.format(data_location), "Use default location"):
+                return
+            self.set_test_data_location(data_location)
 
         title = TEST_EXPLORER_VIEW_TITLE + os.path.splitext(os.path.basename(project))[0]
 
@@ -273,6 +285,7 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
             view.settings().set('test_view', 'list')
             view.settings().set('visible_tests', {'failed': True, 'skipped': True, 'passed': True, 'not_run': True})
             view.settings().set('test_project', project)
+            view.settings().set('test_metadata_location', data_location)
 
             for key, val in list(TEST_EXPLORER_VIEW_SETTINGS.items()):
                 view.settings().set(key, val)
@@ -372,7 +385,6 @@ class TestExplorerMoveCmd(TestExplorerTextCmd):
             self.move_to_region(regs[0])
 
 class TestExplorerReplaceCommand(TextCommand, TestExplorerMoveCmd):
-    _lpop = False
 
     def is_visible(self):
         return False
@@ -390,7 +402,6 @@ class TestExplorerReplaceCommand(TextCommand, TestExplorerMoveCmd):
 
 
 class TestExplorerRefreshCommand(Cmd, TextCommand, TestExplorerListBuilder):
-    _lpop = False
 
     def is_visible(self):
         return False
@@ -411,15 +422,11 @@ class TestExplorerRefreshCommand(Cmd, TextCommand, TestExplorerListBuilder):
 
 
 class TestExplorerDiscoverCommand(Cmd, TextCommand):
-    _lpop = False
 
     def is_visible(self):
-        return False
+        return True
 
     def run(self, edit, goto=None):
-        if not self.view.settings().get('test_view') == 'list':
-            return
-
         project = self.get_project()
         if not project:
             return
@@ -451,7 +458,7 @@ class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd):
         sublime.error_message("Not implemented")
 
 
-class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd, TestListHelper):
+class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
 
     def run(self, edit, toggle="all"):
         visibility = self.view.settings().get('visible_tests')
