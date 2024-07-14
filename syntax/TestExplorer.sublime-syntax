@@ -1,0 +1,135 @@
+%YAML 1.2
+---
+name: TestExplorer
+scope: text.test-explorer
+hidden: true
+
+contexts:
+  main:
+    - include: header
+    - include: test-list
+    - include: no-tests-found
+    - include: help
+
+  help:
+    - match: '^# View:'
+      push:
+        - meta_scope: comment.test-explorer.help
+        - match: '((?:(?:ctrl\+|super\+|alt\+|shift\+)*\w)?(?:[\w-]-)?[\w\+\-]*) ='
+          captures:
+            1: string.other.test-explorer.help.key
+
+  test-stats:
+    - match: (failed:0)
+      captures:
+        1: comment.other.test-explorer.tests.failed.none
+    - match: (failed:)([0-9]+)
+      captures:
+        1: comment.other.test-explorer.tests.failed.some
+        2: constant.numeric.other.test-explorer.tests.failed
+    - match: (skipped:0)
+      captures:
+        1: comment.other.test-explorer.tests.skipped.none
+    - match: (skipped:)([0-9]+)
+      captures:
+        1: comment.other.test-explorer.tests.skipped.some
+        2: constant.numeric.other.test-explorer.tests.skipped
+    - match: (passed:0)
+      captures:
+        1: comment.other.test-explorer.tests.passed.none
+    - match: (passed:)([0-9]+)
+      captures:
+        1: comment.other.test-explorer.tests.passed.some
+        2: constant.numeric.other.test-explorer.tests.passed
+    - match: (not-run:0)
+      captures:
+        1: comment.other.test-explorer.tests.not-run.none
+    - match: (not-run:)([0-9]+)
+      captures:
+        1: comment.other.test-explorer.tests.not-run.some
+        2: constant.numeric.other.test-explorer.tests.not-run
+    - match: (total:)([0-9]+)
+      captures:
+        1: comment.other.test-explorer.tests.total
+        2: constant.numeric.other.test-explorer.tests.total
+    - match: (last-run:)([^\s]+)
+      captures:
+        1: comment.other.test-explorer.tests.last-run
+        2: string.other.test-explorer.datetime
+    - match: \s*\|\s*
+      scope: comment.test-explorer.stats.separator
+
+  header:
+    - match: '^Last discovery:\s+(.+)\n'
+      scope: comment.test-explorer.header.discovery
+      captures:
+        1: string.other.test-explorer.datetime
+
+    - match: '^Last run:\s+(.+)\n'
+      scope: comment.test-explorer.header.last-run
+      captures:
+        1: string.other.test-explorer.datetime
+
+    - match: '^Tests status:\s+'
+      scope: comment.test-explorer.header.stats
+      push:
+        - include: test-stats
+        - match: \n
+          pop: true
+
+    - match: '^Showing:\s+'
+      scope: comment.test-explorer.header.showing
+      push:
+        - match: \[X\]\s+[\w\-]+
+          scope: text.test-explorer.showing.visible
+        - match: \[ \]\s+[\w\-]+
+          scope: comment.test-explorer.showing.not-visible
+        - match: \s*\|\s*
+          scope: comment.test-explorer.stats.separator
+        - match: \n
+          pop: true
+
+  status-marker:
+    - match: \[X\]
+      scope: string.other.test-explorer.status-marker.failed
+    - match: \[\-\]
+      scope: string.other.test-explorer.status-marker.skipped
+    - match: \[\✓\]
+      scope: string.other.test-explorer.status-marker.passed
+    - match: \[\_\]
+      scope: string.other.test-explorer.status-marker.not-run
+
+  test-list:
+    - match: '^Tests:\s*\n'
+      scope: constant.other.test-explorer.header
+      push:
+        - match: ^(?!\n)\s*
+          push:
+            - meta_scope: meta.test-explorer.test-list.line
+            - match: \-
+              scope: punctuation.section.list.test-explorer.fold-marker
+              set:
+                - include: status-marker
+                - include: test-stats
+                - match: (((?:[^\s]*)?/)?[^\s]*)
+                  captures:
+                    1: meta.test-explorer.test-list.node
+                    2: comment.test-explorer.
+                - match: \n
+                  pop: true
+            - match: (?=\[)
+              set:
+                - include: status-marker
+                - include: test-stats
+                - match: (((?:[^\s]*)?/)?[^\s]*)
+                  captures:
+                    1: meta.test-explorer.test-list.leaf
+                    2: comment.test-explorer.parent
+                - match: \n
+                  pop: true
+        - match: ^\n
+          pop: true
+
+  no-tests-found:
+    - match: ^No test.*\n
+      scope: markup.inserted.test-explorer.no-tests
