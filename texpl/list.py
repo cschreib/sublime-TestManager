@@ -432,7 +432,7 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
         thread.start()
 
 
-class TestExplorerDiscoverCommand(Cmd, TextCommand):
+class TestExplorerDiscoverCommand(TextCommand, TestExplorerTextCmd, TestProjectHelper):
 
     def is_visible(self):
         return True
@@ -442,12 +442,19 @@ class TestExplorerDiscoverCommand(Cmd, TextCommand):
         if not project:
             return
 
-        # TODO: run test discovery then refresh list
-        # thread = self.worker_run_async(partial(self.build_list, project), on_complete=partial(self.set_tests, goto))
-        # thread.start()
+        goto = None
+        selected = self.get_selected_item()
+        if selected:
+            goto = f'item:{selected}'
+
+        thread = self.worker_run_async(partial(self.discover_tests, project), on_complete=partial(self.update_list, goto))
+        thread.start()
+
+    def discover_tests(self, project):
+        sublime.error_message("Not implemented")
 
 
-class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd):
+class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd, TestProjectHelper):
 
     def run(self, edit, start="all"):
         project = self.get_project()
