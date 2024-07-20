@@ -10,6 +10,7 @@ from datetime import datetime
 from functools import partial
 import sys
 import traceback
+import time
 
 def get_thread_stack(thread):
     frame = sys._current_frames().get(thread.ident, None)
@@ -102,12 +103,13 @@ def push_new_job(task_id, job):
                 dump_stack('put', task_id)
                 raise e
 
-def get_job_output(task_id):
+def get_job_output(task_id, timeout=None):
     try:
         num_tries = 0
         queue = get_output_queue(task_id)
 
-        while True:
+        start = time.time()
+        while timeout is None or time.time() - start < timeout:
             try:
                 return queue.get(timeout=0.1)
             except Exception as e:
@@ -116,6 +118,8 @@ def get_job_output(task_id):
                 if num_tries == max_tries:
                     dump_stack('get', task_id)
                     raise e
+
+        raise Exception(f'Job timeout for task {task_id}')
 
     finally:
         release_output_queue(task_id)
@@ -184,7 +188,7 @@ class Cmd(SettingsHelper):
                         pass
             raise
 
-    def worker_run(self, job, task_id=None):
+    def worker_run(self, job, task_id=None, timeout=None):
         if not task_id:
             task_id = next_task_id()
 
@@ -200,7 +204,7 @@ class Cmd(SettingsHelper):
                 worker_logger.info("[%s,%s] new input, sending...", threading.get_ident(), task_id)
                 push_new_job(task_id, job)
                 worker_logger.info("[%s,%s] wait for output...", threading.get_ident(), task_id)
-                outputs = get_job_output(task_id)
+                outputs = get_job_output(task_id, timeout=timeout)
             except Exception as e:
                 outputs = JobError("Could not execute command: %s" % e)
 
@@ -211,33 +215,36 @@ class Cmd(SettingsHelper):
         worker_logger.info("[%s,%s] got output: %s", threading.get_ident(), task_id, str(outputs)[:32])
         return outputs
 
-    def worker_run_async(self, job, on_complete=None, on_exception=None, task_id=None):
+    def worker_run_async(self, job, on_complete=None, on_exception=None, task_id=None, timeout=None):
         if not task_id:
             task_id = next_task_id()
 
         worker_logger.info("[%s,%s] running async task", threading.get_ident(), task_id)
 
         # Spawn a thread to schedule the job on the worker thread and wait for the output
-        def async_inner(on_complete, on_exception, task_id):
+        def async_inner(job, on_complete, on_exception, task_id, timeout):
             try:
-                worker_logger.info("[%s,%s] async new input, sending...", threading.get_ident(), task_id)
-                push_new_job(task_id, job)
-                worker_logger.info("[%s,%s] async wait for output...", threading.get_ident(), task_id)
-                outputs = get_job_output(task_id)
+                try:
+                    worker_logger.info("[%s,%s] async new input, sending...", threading.get_ident(), task_id)
+                    push_new_job(task_id, job)
+                    worker_logger.info("[%s,%s] async wait for output...", threading.get_ident(), task_id)
+                    outputs = get_job_output(task_id, timeout=timeout)
+                except Exception as e:
+                    outputs = JobError("Could not execute command: %s" % e)
+
+                if isinstance(outputs, Exception):
+                    worker_logger.info("[%s,%s] async got error", threading.get_ident(), task_id)
+                    logger.debug('async-exception: %s', outputs)
+                    if callable(on_exception):
+                        sublime.set_timeout(partial(on_exception, outputs), 0)
+                else:
+                    worker_logger.info("[%s,%s] async got output", threading.get_ident(), task_id)
+                    if callable(on_complete):
+                        sublime.set_timeout(partial(on_complete, outputs), 0)
             except Exception as e:
-                outputs = JobError("Could not execute command: %s" % e)
+                logger.error('async-exception [BUG]: %s', e)
 
-            if isinstance(outputs, Exception):
-                worker_logger.info("[%s,%s] async got error", threading.get_ident(), task_id)
-                logger.debug('async-exception: %s', outputs)
-                if callable(on_exception):
-                    sublime.set_timeout(partial(on_exception, outputs), 0)
-            else:
-                worker_logger.info("[%s,%s] async got output", threading.get_ident(), task_id)
-                if callable(on_complete):
-                    sublime.set_timeout(partial(on_complete, outputs), 0)
-
-        return threading.Thread(target=partial(async_inner, on_complete, on_exception, task_id))
+        return threading.Thread(target=partial(async_inner, job, on_complete, on_exception, task_id, timeout))
 
     # sync commands
     def cmd(self, cmd, stdin=None, cwd=None, ignore_errors=False, encoding=None, fallback=None):
