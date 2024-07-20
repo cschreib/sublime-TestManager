@@ -155,8 +155,6 @@ class TestExplorerListBuilder(TestListHelper, SettingsHelper):
         status += f'Last run:       {last_run}\n'
         status += f'Tests status:   {self.stats_to_string(stats)}\n'
         status += f'Showing:        {self.visible_to_string(visibility)}\n'
-        # TODO: explain which tests are being shown/hidden somehow
-        # status += f'Showing:        {self.stats_to_string(stats)}\n'
         status += '\n\n'
 
         visible_tests = self.build_tests(tests, visibility=visibility)
