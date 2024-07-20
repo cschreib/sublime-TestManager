@@ -92,12 +92,16 @@ contexts:
   status-marker:
     - match: \[X\]
       scope: string.other.test-explorer.status-marker.failed
-    - match: \[\-\]
+    - match: \[S\]
       scope: string.other.test-explorer.status-marker.skipped
     - match: \[\✓\]
       scope: string.other.test-explorer.status-marker.passed
     - match: \[\_\]
       scope: string.other.test-explorer.status-marker.not-run
+    - match: \[R\]
+      scope: string.other.test-explorer.status-marker.running
+    - match: \[Q\]
+      scope: string.other.test-explorer.status-marker.queued
 
   test-list:
     - match: '^Tests:\s*\n'

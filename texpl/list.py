@@ -32,8 +32,10 @@ TEST_SEPARATOR = '/'
 STATUS_SYMBOL = {
     'not_run': '_',
     'failed':  'X',
-    'skipped': '-',
-    'passed':  '✓'
+    'skipped': 'S',
+    'passed':  '✓',
+    'running': 'R',
+    'queued':  'Q'
 }
 
 STATUS_NAME = {
@@ -67,7 +69,13 @@ NO_PROJECT_DIALOG = ("Could not find an project based on the open files and fold
 
 NO_TEST_DATAL_LOCATION_DIALOG = ("No configured location for storing test metadata. Use default?\n\n{}?")
 
-TEST_STOP_CONFIRM_DIALOG = "You are about to stop all currently-running tests. Are you sure?"
+TEST_STOP_CONFIRM_DIALOG = ("You are about to stop all currently-running tests. Are you sure?")
+
+CANNOT_DISCOVER_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or "
+                                        "stop the tests before running test discovery.")
+
+CANNOT_START_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or stop the tests "
+                                     "before running new tests.")
 
 class TestExplorerListBuilder(TestListHelper, SettingsHelper):
 
@@ -89,11 +97,21 @@ class TestExplorerListBuilder(TestListHelper, SettingsHelper):
         else:
             return prefix + add + TEST_SEPARATOR
 
+    def item_display_status(self, item):
+        if item['run_status'] != 'not_running':
+            return item['run_status']
+        else:
+            return item['last_status']
+
     def item_is_visible(self, item, visibility=None):
         if 'children' in item:
             return any(self.item_is_visible(i, visibility=visibility) for i in item['children'])
 
-        return visibility[item['status']]
+        if item['run_status'] != 'not_running':
+            # Always show running tests
+            return True
+
+        return visibility[item['last_status']]
 
     def build_items(self, items, depth=0, prefix='', visibility=None):
         if len(items) == 1:
@@ -116,7 +134,7 @@ class TestExplorerListBuilder(TestListHelper, SettingsHelper):
 
     def build_item(self, item, depth=0, prefix=''):
         indent = '  ' * depth
-        symbol = f'[{STATUS_SYMBOL[item["status"]]}]'
+        symbol = f'[{STATUS_SYMBOL[self.item_display_status(item)]}]'
         fold = '- ' if 'children' in item else '  '
         return f'  {indent}{fold}{symbol} {prefix}{item["name"]}'
 
@@ -445,6 +463,10 @@ class TestExplorerDiscoverCommand(TextCommand, TestExplorerTextCmd, TestProjectH
         if not project:
             return
 
+        if self.is_running_tests(project):
+            sublime.error_message(CANNOT_DISCOVER_WHILE_RUNNING_DIALOG)
+            return
+
         goto = None
         selected = self.get_selected_item()
         if selected:
@@ -462,6 +484,10 @@ class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd, TestProjectHelp
     def run(self, edit, start="all"):
         project = self.get_project()
         if not project:
+            return
+
+        if self.is_running_tests(project):
+            sublime.error_message(CANNOT_START_WHILE_RUNNING_DIALOG)
             return
 
         if start == "item":
@@ -491,9 +517,6 @@ class TestExplorerStopCommand(TextCommand, TestExplorerTextCmd, TestProjectHelpe
 
         if sublime.ok_cancel_dialog(TEST_STOP_CONFIRM_DIALOG, "Stop tests"):
             self.stop_all_tests(project)
-
-    def is_running_tests(self, project):
-        sublime.error_message("Not implemented")
 
     def stop_all_tests(self, project):
         sublime.error_message("Not implemented")

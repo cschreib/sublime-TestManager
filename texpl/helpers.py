@@ -14,20 +14,20 @@ def datetime_to_iso(time):
 
 last_discovery = datetime.fromisoformat('2024-05-04T11:05:12')
 tests_list = [
-            {'name': 'Test.exe', 'status': 'failed', 'children': [
-                {'name': 'TestCase1', 'status': 'failed', 'children': [
-                    {'name': 'test_this', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_that', 'status': 'failed', 'last_run': datetime.fromisoformat('2024-05-04T11:05:12')},
-                    {'name': 'test_them', 'status': 'skipped', 'last_run': datetime.fromisoformat('2024-05-04T11:05:14')},
-                    {'name': 'test_new', 'status': 'not_run', 'last_run': None},
+            {'name': 'Test.exe', 'last_status': 'failed', 'run_status': 'not_running', 'children': [
+                {'name': 'TestCase1', 'last_status': 'failed', 'run_status': 'not_running', 'children': [
+                    {'name': 'test_this', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': 'texpl/list.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_that', 'last_status': 'failed', 'run_status': 'not_running', 'location': {'file': 'texpl/list.py', 'line': 6}, 'last_run': datetime.fromisoformat('2024-05-04T11:05:12')},
+                    {'name': 'test_them', 'last_status': 'skipped', 'run_status': 'not_running', 'location': {'file': 'texpl/list.py', 'line': 7}, 'last_run': datetime.fromisoformat('2024-05-04T11:05:14')},
+                    {'name': 'test_new', 'last_status': 'not_run', 'run_status': 'not_running', 'location': {'file': 'texpl/list.py', 'line': 10}, 'last_run': None},
                 ]},
-                {'name': 'TestCase2', 'status': 'passed', 'children': [
-                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-03T13:05:12')}
+                {'name': 'TestCase2', 'last_status': 'passed', 'run_status': 'not_running', 'children': [
+                    {'name': 'test_me', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': 'texpl/util.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-03T13:05:12')}
                 ]},
-                {'name': 'TestCase3', 'status': 'passed', 'children': [
-                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_me', 'status': 'passed', 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                {'name': 'TestCase3', 'last_status': 'passed', 'run_status': 'running', 'children': [
+                    {'name': 'test_me1', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': 'texpl/cmd.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_me2', 'last_status': 'passed', 'run_status': 'queued', 'location': {'file': 'texpl/cmd.py', 'line': 6}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_me', 'last_status': 'passed', 'run_status': 'running', 'location': {'file': 'texpl/cmd.py', 'line': 7}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
                 ]}
             ]}
         ]
@@ -137,7 +137,7 @@ class TestProjectHelper(object):
 
         return os.path.normpath(os.path.join(base, DEFAULT_TEST_DATA_LOCATION))
 
-    def set_test_data_location(self, location):
+    def set_test_data_location(self, location, init=True):
         if not hasattr(self, 'window'):
             sublime.error_message('Cannot run this command without a window')
 
@@ -148,6 +148,10 @@ class TestProjectHelper(object):
             data['settings'] = {}
         data['settings']['test_explorer_metadata_location'] = os.path.relpath(location, start=base)
         self.window.set_project_data(data)
+
+        if init:
+            # TODO: initialise files
+            sublime.error_message("Not implemented")
 
     # Test data
     def get_last_discovery(self, project=None):
@@ -186,6 +190,9 @@ class TestProjectHelper(object):
 
         return found
 
+    def is_running_tests(self, project):
+        sublime.error_message("Not implemented")
+
 
 class TestListHelper(TestProjectHelper):
 
@@ -200,9 +207,10 @@ class TestListHelper(TestProjectHelper):
 
     def add_to_stats(self, stats, item):
         if stats is None:
-            stats = {'failed': 0, 'skipped': 0, 'passed': 0, 'not_run': 0, 'total': 0, 'last_run': None}
+            stats = {'failed': 0, 'skipped': 0, 'passed': 0, 'not_run': 0, 'not_running': 0, 'running': 0, 'queued': 0, 'total': 0, 'last_run': None}
 
-        stats[item['status']] += 1
+        stats[item['last_status']] += 1
+        stats[item['run_status']] += 1
         stats['total'] += 1
         if item['last_run'] is not None:
             if stats['last_run'] is not None:
