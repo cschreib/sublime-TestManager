@@ -8,7 +8,7 @@ __version__ = '1.0.0'
 from .list import (TestExplorerListCommand, TestExplorerRefreshCommand,
                    TestExplorerDiscoverCommand,TestExplorerReplaceCommand,
                    TestExplorerStartCommand, TestExplorerStopCommand,
-                   TestExplorerToggleShowCommand)
+                   TestExplorerToggleShowCommand, TestExplorerOpenFile)
 
 from .testexplorer import (TestExplorerVersionCommand)
 

@@ -50,18 +50,21 @@ NO_TESTS_FOUND = "No test found. Press 'r' to run discovery."
 NO_TESTS_VISIBLE = "No test to show with the current filters."
 
 TEST_EXPLORER_HELP = """
+# Running:
+#    d = run test discovery
+#    s = run app/suite/case, S = run all tests
+#    C = stop tests
+#
+# Other:
+#    enter = open test file
+#
 # View:
 #    r = refresh view
 #    f = toggle show/hide failed tests
 #    i = toggle show/hide skipped tests
 #    p = toggle show/hide passed tests
 #    n = toggle show/hide new tests
-#    a = toggle show/hide all tests
-#
-# Running:
-#    d = run test discovery
-#    s = run app/suite/case, S = run all tests
-#    C = stop tests"""
+#    a = toggle show/hide all tests"""
 
 
 NO_PROJECT_DIALOG = ("Could not find an project based on the open files and folders. "
@@ -542,3 +545,30 @@ class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
         self.view.settings().set('visible_tests', visibility)
         self.update_list(goto=goto)
 
+
+class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestProjectHelper, SettingsHelper):
+
+    def run(self, edit, toggle="all"):
+        project = self.get_project()
+        if not project:
+            return
+
+        transient = self.get_setting('explorer_open_files_transient', True) is True
+        tests = self.get_selected_tests()
+        window = self.view.window()
+        root_folder = self.get_test_data_location()
+
+        for test in tests:
+            logger.warning(test)
+            item = self.find_test(test.split(TEST_SEPARATOR), project=project)
+            if not item:
+                logger.warning(' not found!')
+                continue
+
+            filename = os.path.join(root_folder, item['location']['file'])
+            location = f'{filename}:{item["location"]["line"]}'
+            logger.warning(f'opening {location}')
+            if transient:
+                view = window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)
+            else:
+                view = window.open_file(location, sublime.ENCODED_POSITION)

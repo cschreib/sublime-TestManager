@@ -12,7 +12,7 @@ contexts:
     - include: help
 
   help:
-    - match: '^# View:'
+    - match: '^#'
       push:
         - meta_scope: comment.test-explorer.help
         - match: '((?:(?:ctrl\+|super\+|alt\+|shift\+)*\w)?(?:[\w-]-)?[\w\+\-]*) ='

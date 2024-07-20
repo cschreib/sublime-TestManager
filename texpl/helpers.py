@@ -16,18 +16,18 @@ last_discovery = datetime.fromisoformat('2024-05-04T11:05:12')
 tests_list = [
             {'name': 'Test.exe', 'last_status': 'failed', 'run_status': 'not_running', 'children': [
                 {'name': 'TestCase1', 'last_status': 'failed', 'run_status': 'not_running', 'children': [
-                    {'name': 'test_this', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': 'texpl/list.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_that', 'last_status': 'failed', 'run_status': 'not_running', 'location': {'file': 'texpl/list.py', 'line': 6}, 'last_run': datetime.fromisoformat('2024-05-04T11:05:12')},
-                    {'name': 'test_them', 'last_status': 'skipped', 'run_status': 'not_running', 'location': {'file': 'texpl/list.py', 'line': 7}, 'last_run': datetime.fromisoformat('2024-05-04T11:05:14')},
-                    {'name': 'test_new', 'last_status': 'not_run', 'run_status': 'not_running', 'location': {'file': 'texpl/list.py', 'line': 10}, 'last_run': None},
+                    {'name': 'test_this', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': '../texpl/list.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_that', 'last_status': 'failed', 'run_status': 'not_running', 'location': {'file': '../texpl/list.py', 'line': 6}, 'last_run': datetime.fromisoformat('2024-05-04T11:05:12')},
+                    {'name': 'test_them', 'last_status': 'skipped', 'run_status': 'not_running', 'location': {'file': '../texpl/list.py', 'line': 7}, 'last_run': datetime.fromisoformat('2024-05-04T11:05:14')},
+                    {'name': 'test_new', 'last_status': 'not_run', 'run_status': 'not_running', 'location': {'file': '../texpl/list.py', 'line': 10}, 'last_run': None},
                 ]},
                 {'name': 'TestCase2', 'last_status': 'passed', 'run_status': 'not_running', 'children': [
-                    {'name': 'test_me', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': 'texpl/util.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-03T13:05:12')}
+                    {'name': 'test_me', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': '../texpl/util.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-03T13:05:12')}
                 ]},
                 {'name': 'TestCase3', 'last_status': 'passed', 'run_status': 'running', 'children': [
-                    {'name': 'test_me1', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': 'texpl/cmd.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_me2', 'last_status': 'passed', 'run_status': 'queued', 'location': {'file': 'texpl/cmd.py', 'line': 6}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
-                    {'name': 'test_me', 'last_status': 'passed', 'run_status': 'running', 'location': {'file': 'texpl/cmd.py', 'line': 7}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_me1', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': '../texpl/cmd.py', 'line': 5}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_me2', 'last_status': 'passed', 'run_status': 'queued', 'location': {'file': '../texpl/cmd.py', 'line': 6}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
+                    {'name': 'test_me', 'last_status': 'passed', 'run_status': 'running', 'location': {'file': '../texpl/cmd.py', 'line': 7}, 'last_run': datetime.fromisoformat('2024-05-04T12:05:12')},
                 ]}
             ]}
         ]
@@ -87,7 +87,7 @@ class TestProjectHelper(object):
             if self.view.window() and not location:
                 location = self.get_test_data_location_from_window(self.view.window(), silent=silent)
         elif hasattr(self, 'window'):
-            proj = self.get_test_data_location_from_window(self.window, silent=silent)
+            location = self.get_test_data_location_from_window(self.window, silent=silent)
 
         return location
 
@@ -95,10 +95,13 @@ class TestProjectHelper(object):
         if view is None:
             return
 
-        # first try the view settings (for things like status, diff, etc)
-        location = view.settings().get('test_metadata_location')
+        location = view.settings().get('test_explorer_metadata_location')
         if location:
             logger.info('get_test_data_location_from_view(view=%s, silent=%s): %s (view settings)', view.id(), silent, location)
+
+        if location is not None:
+            base = os.path.dirname(view.window().project_file_name())
+            location = os.path.normpath(os.path.join(base, location))
             return location
 
     def get_test_data_location_from_window(self, window=None, silent=True):
@@ -109,18 +112,12 @@ class TestProjectHelper(object):
         active_view = window.active_view()
         if active_view is not None:
             # if the active view has a setting, use that
-            location = active_view.settings().get('test_metadata_location')
+            location = active_view.settings().get('test_explorer_metadata_location')
             if location:
                 logger.info('get_test_data_location_from_window(window=%s, silent=%s): %s (view settings)', window.id(), silent, location)
+                base = os.path.dirname(window.project_file_name())
+                location = os.path.normpath(os.path.join(base, location))
                 return location
-
-        # Read the location from the project file
-        data = window.project_data()
-        if 'settings' in data and 'test_metadata_location' in data['settings']:
-            base = os.path.dirname(self.window.project_file_name())
-            location = os.path.join(base, data['settings']['test_explorer_metadata_location'])
-            logger.info('get_test_data_location_from_window(window=%s, silent=%s): %s (window project)', window.id(), silent, location)
-            return location
 
         if silent:
             logger.info('get_test_data_location_from_window(window=%s, silent=%s): None (silent)', window.id(), silent)
@@ -168,8 +165,8 @@ class TestProjectHelper(object):
         global tests_list
         return tests_list
 
-    def find_test(self):
-        lst = self.get_tests_list()
+    def find_test(self, item_path, project=None):
+        lst = self.get_tests_list(project=project)
         for p in item_path:
             found = None
             if lst is None:
