@@ -206,8 +206,22 @@ class TestExplorerTextCmd(Cmd):
         return selected_lines
 
     # test helpers
+    def get_selected_item_region(self):
+        point = self.get_first_point()
+        if not point:
+            return None
+
+        line = self.view.line(point)
+        for f in self.get_all_leaf_regions():
+            if line.contains(f):
+                return f
+
+        for f in self.get_all_node_regions():
+            if line.contains(f):
+                return f
+
     def get_all_item_regions(self):
-        return self.view.find_by_selector('meta.test-explorer.test-list.line')
+        return self.get_all_leaf_regions() + self.get_all_node_regions()
 
     def get_all_leaf_regions(self):
         return self.view.find_by_selector('meta.test-explorer.test-list.leaf')
@@ -252,6 +266,10 @@ class TestExplorerTextCmd(Cmd):
 
     def get_selected_folders(self):
         return [self.view.substr(r) for r in self.get_selected_node_regions()]
+
+    def get_selected_item(self):
+        r = self.get_selected_item_region()
+        return self.view.substr(r) if r else None
 
 
 class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
@@ -358,23 +376,13 @@ class TestExplorerMoveCmd(TestExplorerTextCmd):
         else:
             return self.prev_region(regions, point)
 
-    def move_to_item(self, which=1, where=None):
-        if isinstance(which, int):
-            tests = self.get_all_item_regions()
-            if tests:
-                if len(tests) >= which:
-                    self.move_to_region(self.view.line(tests[which - 1]))
-                else:
-                    self.move_to_region(self.view.line(tests[-1]))
-            elif self.view.find(NO_TESTS_FOUND, 0, sublime.LITERAL):
-                region = self.view.find(NO_TESTS_FOUND, 0, sublime.LITERAL)
-                self.move_to_region(region)
-        elif which in ('next', 'prev'):
-            point = self.get_first_point()
-            regions = self.get_all_item_regions()
-            if point and regions:
-                next = self.next_or_prev_region(which, regions, point)
-                self.move_to_region(next)
+    def move_to_item(self, which='', where=None):
+        tests = [r for r in self.get_all_item_regions() if which == self.view.substr(r)]
+        if not tests:
+            self.move_to_list_top()
+            return
+
+        self.move_to_region(tests[0])
 
     def move_to_list_top(self):
         regs = self.view.find_by_selector('meta.test-explorer.test-list.node')
@@ -401,7 +409,7 @@ class TestExplorerReplaceCommand(TextCommand, TestExplorerMoveCmd):
             self.goto(GOTO_DEFAULT)
 
 
-class TestExplorerRefreshCommand(Cmd, TextCommand, TestExplorerListBuilder):
+class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerListBuilder):
 
     def is_visible(self):
         return False
@@ -416,6 +424,11 @@ class TestExplorerRefreshCommand(Cmd, TextCommand, TestExplorerListBuilder):
         project = self.get_project()
         if not project:
             return
+
+        goto = None
+        selected = self.get_selected_item()
+        if selected:
+            goto = f'item:{selected}'
 
         thread = self.worker_run_async(partial(self.build_list, project), on_complete=partial(self.set_tests, goto))
         thread.start()
@@ -470,9 +483,10 @@ class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
         else:
             visibility[toggle] = not self.view.settings().get('visible_tests')[toggle]
 
-        goto = 'item:1'
-        if not any(visibility.values()):
-            goto = GOTO_DEFAULT
+        goto = None
+        selected = self.get_selected_item()
+        if selected:
+            goto = f'item:{selected}'
 
         self.view.settings().set('visible_tests', visibility)
         self.update_list(goto=goto)
