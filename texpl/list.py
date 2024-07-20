@@ -58,13 +58,16 @@ TEST_EXPLORER_HELP = """
 #
 # Running:
 #    d = run test discovery
-#    s = run app/suite/case, S = run all tests"""
+#    s = run app/suite/case, S = run all tests
+#    C = stop tests"""
 
 
 NO_PROJECT_DIALOG = ("Could not find an project based on the open files and folders. "
                      "Please make sure to run this command in a window with a loaded project.")
 
 NO_TEST_DATAL_LOCATION_DIALOG = ("No configured location for storing test metadata. Use default?\n\n{}?")
+
+TEST_STOP_CONFIRM_DIALOG = "You are about to stop all currently-running tests. Are you sure?"
 
 class TestExplorerListBuilder(TestListHelper, SettingsHelper):
 
@@ -473,6 +476,26 @@ class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd, TestProjectHelp
         sublime.error_message("Not implemented")
 
     def start_all_tests(self, project):
+        sublime.error_message("Not implemented")
+
+
+class TestExplorerStopCommand(TextCommand, TestExplorerTextCmd, TestProjectHelper):
+
+    def run(self, edit):
+        project = self.get_project()
+        if not project:
+            return
+
+        if not self.is_running_tests(project):
+            return
+
+        if sublime.ok_cancel_dialog(TEST_STOP_CONFIRM_DIALOG, "Stop tests"):
+            self.stop_all_tests(project)
+
+    def is_running_tests(self, project):
+        sublime.error_message("Not implemented")
+
+    def stop_all_tests(self, project):
         sublime.error_message("Not implemented")
 
 
