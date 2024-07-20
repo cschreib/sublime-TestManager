@@ -109,6 +109,7 @@ contexts:
             - match: \-
               scope: punctuation.section.list.test-explorer.fold-marker
               set:
+                - meta_scope: meta.test-explorer.test-list.line
                 - include: status-marker
                 - include: test-stats
                 - match: (((?:[^\s]*)?/)?[^\s]*)
@@ -119,6 +120,7 @@ contexts:
                   pop: true
             - match: (?=\[)
               set:
+                - meta_scope: meta.test-explorer.test-list.line
                 - include: status-marker
                 - include: test-stats
                 - match: (((?:[^\s]*)?/)?[^\s]*)
