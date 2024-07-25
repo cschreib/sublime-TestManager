@@ -15,6 +15,7 @@ LOAD_ORDER = [
     '',
     '.util',
     '.cmd',
+    '.test_data',
     '.helpers',
 
     # commands

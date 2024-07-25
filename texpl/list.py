@@ -9,7 +9,8 @@ from sublime_plugin import WindowCommand, TextCommand, EventListener
 
 from .util import abbreviate_dir, find_view_by_settings, noop, SettingsHelper
 from .cmd import Cmd
-from .helpers import TestListHelper, TestProjectHelper
+from .helpers import TestDataHelper
+from .test_data import get_test_stats
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -23,6 +24,13 @@ TEST_EXPLORER_VIEW_SETTINGS = {
     'draw_white_space': 'none',
     'word_wrap': False,
     'test_explorer': True,
+}
+
+TEST_EXPLORER_DEFAULT_VISIBILITY = {
+    'failed': True,
+    'skipped': True,
+    'passed': True,
+    'not_run': True
 }
 
 SECTION_SELECTOR_PREFIX = 'meta.test-explorer.'
@@ -67,11 +75,6 @@ TEST_EXPLORER_HELP = """
 #    a = toggle show/hide all tests"""
 
 
-NO_PROJECT_DIALOG = ("Could not find an project based on the open files and folders. "
-                     "Please make sure to run this command in a window with a loaded project.")
-
-NO_TEST_DATAL_LOCATION_DIALOG = ("No configured location for storing test metadata. Use default?\n\n{}?")
-
 TEST_STOP_CONFIRM_DIALOG = ("You are about to stop all currently-running tests. Are you sure?")
 
 CANNOT_DISCOVER_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or "
@@ -80,10 +83,10 @@ CANNOT_DISCOVER_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wai
 CANNOT_START_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or stop the tests "
                                      "before running new tests.")
 
-class TestExplorerListBuilder(TestListHelper, SettingsHelper):
+class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
-    def build_list(self, project):
-        status = self.build_test_list(project)
+    def build_list(self, data):
+        status = self.build_test_list(data)
 
         if self.get_setting('explorer_show_help', True):
             status += TEST_EXPLORER_HELP
@@ -107,6 +110,9 @@ class TestExplorerListBuilder(TestListHelper, SettingsHelper):
             return item['last_status']
 
     def item_is_visible(self, item, visibility=None):
+        if not visibility:
+            return True
+
         if 'children' in item:
             return any(self.item_is_visible(i, visibility=visibility) for i in item['children'])
 
@@ -155,22 +161,22 @@ class TestExplorerListBuilder(TestListHelper, SettingsHelper):
     def build_info(self, item, line, max_length):
         padding = ' ' * (max_length - len(line))
         if 'children' in item:
-            return f'{line}{padding}    {self.stats_to_string(self.get_tests_stats(item["children"]))}'
+            return f'{line}{padding}    {self.stats_to_string(get_test_stats(item))}'
         else:
             return f'{line}{padding}    last-run:{self.date_to_string(item["last_run"])}'
 
     def build_tests(self, tests, visibility=None):
-        lines = self.build_items(tests, depth=0, prefix='', visibility=visibility)
+        lines = self.build_items(tests['children'], depth=0, prefix='', visibility=visibility)
         if len(lines) == 0:
             return []
 
         max_length = max([len(line) for _, line in lines])
         return [self.build_info(item, line, max_length) for item, line in lines]
 
-    def build_test_list(self, project):
-        last_discovery = self.date_to_string(self.get_last_discovery())
-        tests = self.get_tests_list(project)
-        stats = self.get_tests_stats(tests)
+    def build_test_list(self, data):
+        last_discovery = self.date_to_string(data.get_last_discovery())
+        tests = data.get_test_list()
+        stats = data.get_global_test_stats()
         last_run = self.date_to_string(stats["last_run"])
         visibility = self.view.settings().get('visible_tests')
 
@@ -182,7 +188,7 @@ class TestExplorerListBuilder(TestListHelper, SettingsHelper):
         status += '\n\n'
 
         visible_tests = self.build_tests(tests, visibility=visibility)
-        if not tests:
+        if not tests['children']:
             status += NO_TESTS_FOUND + '\n'
         elif not visible_tests:
             status += NO_TESTS_VISIBLE + '\n'
@@ -198,9 +204,6 @@ class TestExplorerListBuilder(TestListHelper, SettingsHelper):
 
 
 class TestExplorerTextCmd(Cmd):
-
-    def run(self, edit, *args):
-        sublime.error_message("Unimplemented!")
 
     # status update
     def update_list(self, goto=None):
@@ -300,16 +303,10 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
     """
 
     def run(self, refresh_only=False):
-        project = self.get_project(silent=True if refresh_only else False)
-        if not project:
-            sublime.error_message(NO_PROJECT_DIALOG)
-
-        data_location = self.get_test_data_location()
-        if not data_location:
-            data_location = self.get_default_test_data_location()
-            if not sublime.ok_cancel_dialog(NO_TEST_DATAL_LOCATION_DIALOG.format(data_location), "Use default location"):
-                return
-            self.set_test_data_location(data_location)
+        project = self.get_project()
+        data_location = self.get_test_data_location(project=project)
+        if not data_location or not project:
+            return
 
         title = TEST_EXPLORER_VIEW_TITLE + os.path.splitext(os.path.basename(project))[0]
 
@@ -323,9 +320,8 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
             view.set_read_only(True)
 
             view.settings().set('test_view', 'list')
-            view.settings().set('visible_tests', {'failed': True, 'skipped': True, 'passed': True, 'not_run': True})
-            view.settings().set('test_project', project)
-            view.settings().set('test_metadata_location', data_location)
+            view.settings().set('visible_tests', TEST_EXPLORER_DEFAULT_VISIBILITY)
+            view.settings().set('test_data_full_path', data_location)
 
             for key, val in list(TEST_EXPLORER_VIEW_SETTINGS.items()):
                 view.settings().set(key, val)
@@ -443,8 +439,8 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
         if not self.view.settings().get('test_view') == 'list':
             return
 
-        project = self.get_project()
-        if not project:
+        data = self.get_test_data()
+        if not data:
             return
 
         goto = None
@@ -452,21 +448,21 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
         if selected:
             goto = f'item:{selected}'
 
-        thread = self.worker_run_async(partial(self.build_list, project), on_complete=partial(self.set_tests, goto))
+        thread = self.worker_run_async(partial(self.build_list, data), on_complete=partial(self.set_tests, goto))
         thread.start()
 
 
-class TestExplorerDiscoverCommand(TextCommand, TestExplorerTextCmd, TestProjectHelper):
+class TestExplorerDiscoverCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
 
     def is_visible(self):
         return True
 
     def run(self, edit, goto=None):
-        project = self.get_project()
-        if not project:
+        data = self.get_test_data()
+        if not data:
             return
 
-        if self.is_running_tests(project):
+        if data.is_running_tests():
             sublime.error_message(CANNOT_DISCOVER_WHILE_RUNNING_DIALOG)
             return
 
@@ -475,53 +471,53 @@ class TestExplorerDiscoverCommand(TextCommand, TestExplorerTextCmd, TestProjectH
         if selected:
             goto = f'item:{selected}'
 
-        thread = self.worker_run_async(partial(self.discover_tests, project), on_complete=partial(self.update_list, goto))
+        thread = self.worker_run_async(partial(self.discover_tests, data), on_complete=partial(self.update_list, goto))
         thread.start()
 
-    def discover_tests(self, project):
+    def discover_tests(self, data):
         sublime.error_message("Not implemented")
 
 
-class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd, TestProjectHelper):
+class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
 
     def run(self, edit, start="all"):
-        project = self.get_project()
-        if not project:
+        data = self.get_test_data()
+        if not data:
             return
 
-        if self.is_running_tests(project):
+        if data.is_running_tests():
             sublime.error_message(CANNOT_START_WHILE_RUNNING_DIALOG)
             return
 
         if start == "item":
             tests = self.get_selected_tests()
             if tests:
-                self.start_tests(project, tests)
+                self.start_tests(data, tests)
 
         elif start == "all":
-            self.start_all_tests(project)
+            self.start_all_tests(data)
 
-    def start_tests(self, project, tests):
+    def start_tests(self, data, tests):
         sublime.error_message("Not implemented")
 
-    def start_all_tests(self, project):
+    def start_all_tests(self, data):
         sublime.error_message("Not implemented")
 
 
-class TestExplorerStopCommand(TextCommand, TestExplorerTextCmd, TestProjectHelper):
+class TestExplorerStopCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
 
     def run(self, edit):
-        project = self.get_project()
-        if not project:
+        data = self.get_test_data()
+        if not data:
             return
 
-        if not self.is_running_tests(project):
+        if not data.is_running_tests():
             return
 
         if sublime.ok_cancel_dialog(TEST_STOP_CONFIRM_DIALOG, "Stop tests"):
-            self.stop_all_tests(project)
+            self.stop_all_tests(data)
 
-    def stop_all_tests(self, project):
+    def stop_all_tests(self, data):
         sublime.error_message("Not implemented")
 
 
@@ -546,17 +542,20 @@ class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
         self.update_list(goto=goto)
 
 
-class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestProjectHelper, SettingsHelper):
+class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, SettingsHelper):
 
     def run(self, edit, toggle="all"):
         project = self.get_project()
         if not project:
             return
 
+        root_folder = self.get_test_data_location()
+        if not root_folder:
+            return
+
         transient = self.get_setting('explorer_open_files_transient', True) is True
         tests = self.get_selected_tests()
         window = self.view.window()
-        root_folder = self.get_test_data_location()
 
         for test in tests:
             logger.warning(test)
@@ -569,6 +568,6 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestProjectHelper, 
             location = f'{filename}:{item["location"]["line"]}'
             logger.warning(f'opening {location}')
             if transient:
-                view = window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)
+                window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)
             else:
-                view = window.open_file(location, sublime.ENCODED_POSITION)
+                window.open_file(location, sublime.ENCODED_POSITION)
