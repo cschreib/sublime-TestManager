@@ -1,13 +1,12 @@
 # coding: utf-8
 import os
 import logging
-import threading
 from functools import partial
 
 import sublime
-from sublime_plugin import WindowCommand, TextCommand, EventListener
+from sublime_plugin import WindowCommand, TextCommand
 
-from .util import abbreviate_dir, find_view_by_settings, noop, SettingsHelper
+from .util import find_view_by_settings, SettingsHelper
 from .cmd import Cmd
 from .helpers import TestDataHelper
 from .test_data import get_test_stats

@@ -4,7 +4,6 @@ import sys
 import subprocess
 import logging
 import threading
-import webbrowser
 import queue
 from datetime import datetime
 from functools import partial
