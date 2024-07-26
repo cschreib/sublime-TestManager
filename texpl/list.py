@@ -544,28 +544,23 @@ class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
 class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, SettingsHelper):
 
     def run(self, edit, toggle="all"):
-        project = self.get_project()
-        if not project:
+        data = self.get_test_data()
+        if not data:
             return
 
-        root_folder = self.get_test_data_location()
-        if not root_folder:
-            return
-
+        root_folder = data.location
         transient = self.get_setting('explorer_open_files_transient', True) is True
         tests = self.get_selected_tests()
         window = self.view.window()
 
         for test in tests:
             logger.warning(test)
-            item = self.find_test(test.split(TEST_SEPARATOR), project=project)
+            item = data.get_test_list().find_test(test.split(TEST_SEPARATOR))
             if not item:
-                logger.warning(' not found!')
                 continue
 
             filename = os.path.join(root_folder, item['location']['file'])
             location = f'{filename}:{item["location"]["line"]}'
-            logger.warning(f'opening {location}')
             if transient:
                 window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)
             else:
