@@ -1,7 +1,10 @@
 # coding: utf-8
+import datetime
 import os
 import logging
+from datetime import datetime
 from functools import partial
+from typing import Optional, List, Dict, Tuple
 
 import sublime
 from sublime_plugin import WindowCommand, TextCommand
@@ -9,7 +12,7 @@ from sublime_plugin import WindowCommand, TextCommand
 from .util import find_view_by_settings, SettingsHelper
 from .cmd import Cmd
 from .helpers import TestDataHelper
-from .test_data import get_test_stats
+from .test_data import get_test_stats, TestItem, TestData
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -84,7 +87,7 @@ CANNOT_START_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait o
 
 class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
-    def build_list(self, data):
+    def build_list(self, data: TestData) -> str:
         status = self.build_test_list(data)
 
         if self.get_setting('explorer_show_help', True):
@@ -92,7 +95,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
         return status
 
-    def add_prefix(self, prefix, add):
+    def add_prefix(self, prefix: str, add: str) -> str:
         if len(add) == 0 and len(prefix) == 0:
             return ''
         elif len(add) == 0:
@@ -102,79 +105,82 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         else:
             return prefix + add + TEST_SEPARATOR
 
-    def item_display_status(self, item):
-        if item['run_status'] != 'not_running':
-            return item['run_status']
+    def item_display_status(self, item: TestItem) -> str:
+        if item.run_status != 'not_running':
+            return item.run_status
         else:
-            return item['last_status']
+            return item.last_status
 
-    def item_is_visible(self, item, visibility=None):
+    def item_is_visible(self, item: TestItem, visibility=None) -> bool:
         if not visibility:
             return True
 
-        if 'children' in item:
-            return any(self.item_is_visible(i, visibility=visibility) for i in item['children'])
+        if item.children is not None:
+            return any(self.item_is_visible(i, visibility=visibility) for i in item.children.values())
 
-        if item['run_status'] != 'not_running':
+        if item.run_status != 'not_running':
             # Always show running tests
             return True
 
-        return visibility[item['last_status']]
+        return visibility[item.last_status]
 
-    def build_items(self, items, depth=0, prefix='', visibility=None):
+    def build_items(self, items: Dict[str, TestItem], depth=0, prefix='', visibility=None) -> List[Tuple[TestItem, str]]:
         if len(items) == 1:
-            if 'children' in items[0]:
-                return self.build_items(items[0]['children'], depth=depth, prefix=self.add_prefix(prefix, items[0]['name']), visibility=visibility)
+            item = next(iter(items.values()))
+            if item.children is not None:
+                return self.build_items(item.children, depth=depth, prefix=self.add_prefix(prefix, item.name), visibility=visibility)
             else:
-                if self.item_is_visible(items[0], visibility=visibility):
-                    return [(items[0], self.build_item(items[0], depth=depth, prefix=prefix))]
+                if self.item_is_visible(item, visibility=visibility):
+                    return [(item, self.build_item(item, depth=depth, prefix=prefix))]
                 else:
                     return []
 
         lines = []
-        for item in items:
+        for item in items.values():
             if self.item_is_visible(item, visibility=visibility):
                 lines += [(item, self.build_item(item, depth=depth, prefix=prefix))]
-            if 'children' in item:
-                lines += self.build_items(item['children'], depth=depth+1, prefix=self.add_prefix(prefix, item['name']), visibility=visibility)
+            if item.children is not None:
+                lines += self.build_items(item.children, depth=depth+1, prefix=self.add_prefix(prefix, item.name), visibility=visibility)
 
         return lines
 
-    def build_item(self, item, depth=0, prefix=''):
+    def build_item(self, item: TestItem, depth=0, prefix='') -> str:
         indent = '  ' * depth
         symbol = f'[{STATUS_SYMBOL[self.item_display_status(item)]}]'
-        fold = '- ' if 'children' in item else '  '
-        return f'  {indent}{fold}{symbol} {prefix}{item["name"]}'
+        fold = '- ' if item.children is not None else '  '
+        return f'  {indent}{fold}{symbol} {prefix}{item.name}'
 
-    def date_to_string(self, date):
+    def date_to_string(self, date: Optional[datetime]) -> str:
         return '--' if date is None else date.isoformat()
 
-    def stats_to_string(self, stats):
+    def stats_to_string(self, stats) -> str:
         displays = ['failed', 'skipped', 'passed', 'not_run', 'total']
         return ' | '.join(f'{STATUS_NAME[k]}:{stats[k]}' for k in displays)
 
-    def visible_to_string(self, visibility):
+    def visible_to_string(self, visibility) -> str:
         displays = ['failed', 'skipped', 'passed', 'not_run']
         return ' | '.join(f'[X] {STATUS_NAME[k]}' if visibility[k] else f'[ ] {STATUS_NAME[k]}' for k in displays)
 
-    def build_info(self, item, line, max_length):
+    def build_info(self, item: TestItem, line: str, max_length: int):
         padding = ' ' * (max_length - len(line))
-        if 'children' in item:
+        if item.children is not None:
             return f'{line}{padding}    {self.stats_to_string(get_test_stats(item))}'
         else:
-            return f'{line}{padding}    last-run:{self.date_to_string(item["last_run"])}'
+            return f'{line}{padding}    last-run:{self.date_to_string(item.last_run)}'
 
-    def build_tests(self, tests, visibility=None):
-        lines = self.build_items(tests['children'], depth=0, prefix='', visibility=visibility)
+    def build_tests(self, root: TestItem, visibility=None):
+        assert root.children is not None
+
+        lines = self.build_items(root.children, depth=0, prefix='', visibility=visibility)
         if len(lines) == 0:
             return []
 
         max_length = max([len(line) for _, line in lines])
         return [self.build_info(item, line, max_length) for item, line in lines]
 
-    def build_test_list(self, data):
+    def build_test_list(self, data: TestData):
         last_discovery = self.date_to_string(data.get_last_discovery())
-        tests = data.get_test_list()
+        tests_list = data.get_test_list()
         stats = data.get_global_test_stats()
         last_run = self.date_to_string(stats["last_run"])
         visibility = self.view.settings().get('visible_tests')
@@ -186,8 +192,8 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         status += f'Showing:        {self.visible_to_string(visibility)}\n'
         status += '\n\n'
 
-        visible_tests = self.build_tests(tests, visibility=visibility)
-        if not tests['children']:
+        visible_tests = self.build_tests(tests_list.root, visibility=visibility)
+        if tests_list.is_empty():
             status += NO_TESTS_FOUND + '\n'
         elif not visible_tests:
             status += NO_TESTS_VISIBLE + '\n'
@@ -559,8 +565,12 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
             if not item:
                 continue
 
-            filename = os.path.join(root_folder, item['location']['file'])
-            location = f'{filename}:{item["location"]["line"]}'
+            location = item.location
+            if location is None:
+                continue
+
+            filename = os.path.join(root_folder, location.file)
+            location = f'{filename}:{location.line}'
             if transient:
                 window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)
             else:
