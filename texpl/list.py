@@ -56,7 +56,7 @@ STATUS_NAME = {
     'total':  'total'
 }
 
-NO_TESTS_FOUND = "No test found. Press 'r' to run discovery."
+NO_TESTS_FOUND = "No test found. Press 'd' to run discovery."
 NO_TESTS_VISIBLE = "No test to show with the current filters."
 
 TEST_EXPLORER_HELP = """
