@@ -9,10 +9,10 @@ from typing import Optional, List, Dict, Tuple
 import sublime
 from sublime_plugin import WindowCommand, TextCommand
 
-from .util import find_view_by_settings, SettingsHelper
+from .util import find_views_by_settings, SettingsHelper
 from .cmd import Cmd
 from .helpers import TestDataHelper
-from .test_data import TestLocation, get_test_stats, TestItem, TestData, DiscoveredTest
+from .test_data import get_test_stats, TestItem, TestData
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -76,14 +76,6 @@ TEST_EXPLORER_HELP = """
 #    n = toggle show/hide new tests
 #    a = toggle show/hide all tests"""
 
-
-TEST_STOP_CONFIRM_DIALOG = ("You are about to stop all currently-running tests. Are you sure?")
-
-CANNOT_DISCOVER_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or "
-                                        "stop the tests before running test discovery.")
-
-CANNOT_START_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or stop the tests "
-                                     "before running new tests.")
 
 class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
@@ -210,10 +202,6 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
 class TestExplorerTextCmd(Cmd):
 
-    # status update
-    def update_list(self, goto=None):
-        self.view.run_command('test_explorer_refresh', {'goto': goto})
-
     # selection commands
     def get_first_point(self):
         sels = self.view.sel()
@@ -307,18 +295,18 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
     Documentation coming soon.
     """
 
-    def run(self, refresh_only=False):
-        project = self.get_project()
-        data_location = self.get_test_data_location(project=project)
-        if not data_location or not project:
+    def run(self, refresh_only=False, data_location=None):
+        if not data_location:
+            data_location = self.get_test_data_location()
+        if not data_location:
             return
 
-        title = TEST_EXPLORER_VIEW_TITLE + os.path.splitext(os.path.basename(project))[0]
-
-        view = find_view_by_settings(self.window, test_view='list')
-        if not view and not refresh_only:
+        views = find_views_by_settings(test_view='list', test_data_full_path=data_location)
+        if not views and not refresh_only:
             view = self.window.new_file()
 
+            project = self.get_project()
+            title = TEST_EXPLORER_VIEW_TITLE + os.path.splitext(os.path.basename(project))[0]
             view.set_name(title)
             view.set_syntax_file(TEST_EXPLORER_VIEW_SYNTAX)
             view.set_scratch(True)
@@ -331,9 +319,14 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
             for key, val in list(TEST_EXPLORER_VIEW_SETTINGS.items()):
                 view.settings().set(key, val)
 
-        if view is not None:
-            self.window.focus_view(view)
+            views = [view]
+
+        for view in views:
             view.run_command('test_explorer_refresh')
+
+        if views and not refresh_only:
+            views[0].window().focus_view(views[0])
+            views[0].window().bring_to_front()
 
 
 class TestExplorerMoveCmd(TestExplorerTextCmd):
@@ -415,6 +408,7 @@ class TestExplorerMoveCmd(TestExplorerTextCmd):
         if regs:
             self.move_to_region(regs[0])
 
+
 class TestExplorerReplaceCommand(TextCommand, TestExplorerMoveCmd):
 
     def is_visible(self):
@@ -440,7 +434,7 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
     def set_tests(self, goto, tests):
         self.view.run_command('test_explorer_replace', {'goto': goto, 'tests': tests})
 
-    def run(self, edit, goto=None):
+    def run(self, edit):
         if not self.view.settings().get('test_view') == 'list':
             return
 
@@ -457,90 +451,10 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
         thread.start()
 
 
-class TestExplorerDiscoverCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
+class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
 
     def is_visible(self):
-        return True
-
-    def run(self, edit, goto=None):
-        data = self.get_test_data()
-        if not data:
-            return
-
-        if data.is_running_tests():
-            sublime.error_message(CANNOT_DISCOVER_WHILE_RUNNING_DIALOG)
-            return
-
-        goto = None
-        selected = self.get_selected_item()
-        if selected:
-            goto = f'item:{selected}'
-
-        thread = self.worker_run_async(partial(self.discover_tests, data, goto))
-        thread.start()
-
-    def discover_tests(self, data: TestData, goto):
-        start = datetime.now()
-
-        discovered_tests = [
-            DiscoveredTest(full_name=['Test.exe', 'TestCase1', 'test_this'], location=TestLocation(file='../texpl/list.py', line=5)),
-            DiscoveredTest(full_name=['Test.exe', 'TestCase1', 'test_that'], location=TestLocation(file='../texpl/list.py', line=6)),
-            DiscoveredTest(full_name=['Test.exe', 'TestCase1', 'test_them'], location=TestLocation(file='../texpl/list.py', line=7)),
-            DiscoveredTest(full_name=['Test.exe', 'TestCase1', 'test_new'], location=TestLocation(file='../texpl/list.py', line=10)),
-            DiscoveredTest(full_name=['Test.exe', 'TestCase2', 'test_me'], location=TestLocation(file='../texpl/util.py', line=5)),
-            DiscoveredTest(full_name=['Test.exe', 'TestCase3', 'test_me1'], location=TestLocation(file='../texpl/cmd.py', line=5)),
-            DiscoveredTest(full_name=['Test.exe', 'TestCase3', 'test_me2'], location=TestLocation(file='../texpl/cmd.py', line=6)),
-            DiscoveredTest(full_name=['Test.exe', 'TestCase3', 'test_me'], location=TestLocation(file='../texpl/cmd.py', line=7)),
-        ]
-
-        data.notify_discovered_tests(discovered_tests, discovery_time=start)
-        self.update_list(goto)
-
-
-class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
-
-    def run(self, edit, start="all"):
-        data = self.get_test_data()
-        if not data:
-            return
-
-        if data.is_running_tests():
-            sublime.error_message(CANNOT_START_WHILE_RUNNING_DIALOG)
-            return
-
-        if start == "item":
-            tests = self.get_selected_tests()
-            if tests:
-                self.start_tests(data, tests)
-
-        elif start == "all":
-            self.start_all_tests(data)
-
-    def start_tests(self, data, tests):
-        sublime.error_message("Not implemented")
-
-    def start_all_tests(self, data):
-        sublime.error_message("Not implemented")
-
-
-class TestExplorerStopCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
-
-    def run(self, edit):
-        data = self.get_test_data()
-        if not data:
-            return
-
-        if not data.is_running_tests():
-            return
-
-        if sublime.ok_cancel_dialog(TEST_STOP_CONFIRM_DIALOG, "Stop tests"):
-            self.stop_all_tests(data)
-
-    def stop_all_tests(self, data):
-        sublime.error_message("Not implemented")
-
-
-class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
+        return False
 
     def run(self, edit, toggle="all"):
         visibility = self.view.settings().get('visible_tests')
@@ -552,16 +466,14 @@ class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
         else:
             visibility[toggle] = not self.view.settings().get('visible_tests')[toggle]
 
-        goto = None
-        selected = self.get_selected_item()
-        if selected:
-            goto = f'item:{selected}'
-
         self.view.settings().set('visible_tests', visibility)
-        self.update_list(goto=goto)
+        self.view.run_command('test_explorer_refresh')
 
 
 class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, SettingsHelper):
+
+    def is_visible(self):
+        return False
 
     def run(self, edit, toggle="all"):
         data = self.get_test_data()
@@ -589,3 +501,23 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
                 window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)
             else:
                 window.open_file(location, sublime.ENCODED_POSITION)
+
+
+class TestExplorerStartSelectedCommand(TextCommand, TestExplorerTextCmd):
+
+    def is_visible(self):
+        return False
+
+    def run(self, edit, start="all"):
+        if start == "item":
+            tests = self.get_selected_tests()
+            if tests:
+                self.start_tests(tests)
+        elif start == "all":
+            self.start_all_tests()
+
+    def start_tests(self, tests):
+        self.view.run_command('test_explorer_start_command', {'start': 'list', 'tests': tests})
+
+    def start_all_tests(self):
+        self.view.run_command('test_explorer_start_command', {'start': 'all'})

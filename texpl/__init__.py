@@ -6,9 +6,13 @@ __version__ = '1.0.0'
 # Import all the commands
 
 from .list import (TestExplorerListCommand, TestExplorerRefreshCommand,
-                   TestExplorerDiscoverCommand,TestExplorerReplaceCommand,
-                   TestExplorerStartCommand, TestExplorerStopCommand,
-                   TestExplorerToggleShowCommand, TestExplorerOpenFile)
+                   TestExplorerReplaceCommand, TestExplorerToggleShowCommand,
+                   TestExplorerStartSelectedCommand,
+                   TestExplorerOpenFile)
+
+from .discover import (TestExplorerDiscoverCommand)
+
+from .run import (TestExplorerStartCommand, TestExplorerStopCommand)
 
 from .testexplorer import (TestExplorerVersionCommand)
 

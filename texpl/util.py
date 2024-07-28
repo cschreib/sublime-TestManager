@@ -4,8 +4,6 @@ from os import path
 import logging
 
 import sublime
-from sublime_plugin import TextCommand
-
 
 logger = logging.getLogger('TestExplorer.util')
 
@@ -31,12 +29,16 @@ def noop(*args, **kwargs):
 
 # View helpers
 
-def find_view_by_settings(window, **kwargs):
-    for view in window.views():
-        s = view.settings()
-        matches = [s.get(k) == v for k, v in list(kwargs.items())]
-        if all(matches):
-            return view
+def find_views_by_settings(**kwargs):
+    views = []
+    for window in sublime.windows():
+        for view in window.views():
+            s = view.settings()
+            matches = [s.get(k) == v for k, v in list(kwargs.items())]
+            if all(matches):
+                views.append(view)
+
+    return views
 
 
 # progress helper
