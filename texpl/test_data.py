@@ -35,6 +35,12 @@ class TestLocation:
         return {'file': self.file, 'line': self.line}
 
 
+class DiscoveredTest:
+    def __init__(self, full_name: List[str] = [], location=TestLocation()):
+        self.full_name = full_name
+        self.location = location
+
+
 class TestItem:
     def __init__(self, name='', location=None, last_status='not_run', run_status='not_running', last_run=None, children: Optional[Dict] = None):
         self.name: str = name
@@ -73,6 +79,13 @@ class TestItem:
             data['children'] = [c.json() for c in self.children.values()]
 
         return data
+
+    @staticmethod
+    def from_discovered(test: DiscoveredTest):
+        return TestItem(name=test.full_name[-1], location=test.location)
+
+    def update_from_discovered(self, test: DiscoveredTest):
+        self.location = test.location
 
 def get_test_stats(item: TestItem):
     def add_one_to_stats(stats: Dict, item: TestItem):
@@ -135,6 +148,21 @@ class TestList:
                 return None
 
             parent = parent.children[p]
+
+        return parent
+
+    def update_test(self, item_path: List[str], item: TestItem):
+        parent = self.root
+        for i in range(len(item_path)):
+            assert parent.children is not None
+
+            if not item_path[i] in parent.children:
+                if i == len(item_path) - 1:
+                    parent.children[item_path[i]] = item
+                else:
+                    parent.children[item_path[i]] = TestItem(item_path[i], children={})
+
+            parent = parent.children[item_path[i]]
 
         return parent
 
@@ -225,3 +253,20 @@ class TestData:
 
         self.stats = get_test_stats(self.get_test_list(cached=cached).root)
         return self.stats
+
+    def notify_discovered_tests(self, discovered_tests: List[DiscoveredTest], discovery_time: datetime):
+        meta = self.get_test_metadata(cached=False)
+        meta.last_discovery = discovery_time
+
+        old_tests = self.get_test_list(cached=False)
+        new_tests = TestList()
+        for test in discovered_tests:
+            item = old_tests.find_test(test.full_name)
+            if not item:
+                item = TestItem.from_discovered(test)
+            else:
+                item.update_from_discovered(test)
+
+            new_tests.update_test(test.full_name, item)
+
+        self.commit(meta=meta, tests=new_tests)

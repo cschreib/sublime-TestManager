@@ -12,7 +12,7 @@ from sublime_plugin import WindowCommand, TextCommand
 from .util import find_view_by_settings, SettingsHelper
 from .cmd import Cmd
 from .helpers import TestDataHelper
-from .test_data import get_test_stats, TestItem, TestData
+from .test_data import TestLocation, get_test_stats, TestItem, TestData, DiscoveredTest
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -476,11 +476,25 @@ class TestExplorerDiscoverCommand(TextCommand, TestExplorerTextCmd, TestDataHelp
         if selected:
             goto = f'item:{selected}'
 
-        thread = self.worker_run_async(partial(self.discover_tests, data), on_complete=partial(self.update_list, goto))
+        thread = self.worker_run_async(partial(self.discover_tests, data, goto))
         thread.start()
 
-    def discover_tests(self, data):
-        sublime.error_message("Not implemented")
+    def discover_tests(self, data: TestData, goto):
+        start = datetime.now()
+
+        discovered_tests = [
+            DiscoveredTest(full_name=['Test.exe', 'TestCase1', 'test_this'], location=TestLocation(file='../texpl/list.py', line=5)),
+            DiscoveredTest(full_name=['Test.exe', 'TestCase1', 'test_that'], location=TestLocation(file='../texpl/list.py', line=6)),
+            DiscoveredTest(full_name=['Test.exe', 'TestCase1', 'test_them'], location=TestLocation(file='../texpl/list.py', line=7)),
+            DiscoveredTest(full_name=['Test.exe', 'TestCase1', 'test_new'], location=TestLocation(file='../texpl/list.py', line=10)),
+            DiscoveredTest(full_name=['Test.exe', 'TestCase2', 'test_me'], location=TestLocation(file='../texpl/util.py', line=5)),
+            DiscoveredTest(full_name=['Test.exe', 'TestCase3', 'test_me1'], location=TestLocation(file='../texpl/cmd.py', line=5)),
+            DiscoveredTest(full_name=['Test.exe', 'TestCase3', 'test_me2'], location=TestLocation(file='../texpl/cmd.py', line=6)),
+            DiscoveredTest(full_name=['Test.exe', 'TestCase3', 'test_me'], location=TestLocation(file='../texpl/cmd.py', line=7)),
+        ]
+
+        data.notify_discovered_tests(discovered_tests, discovery_time=start)
+        self.update_list(goto)
 
 
 class TestExplorerStartCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
