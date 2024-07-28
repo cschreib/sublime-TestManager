@@ -12,6 +12,13 @@ def date_from_json(data: Optional[str]) -> Optional[datetime]:
 
     return datetime.fromisoformat(data)
 
+def date_to_json(data: Optional[datetime]) -> Optional[str]:
+    if data is None:
+        return None
+
+    return data.isoformat()
+
+
 class TestLocation:
     def __init__(self, file='', line=0):
         self.file = file
@@ -24,24 +31,28 @@ class TestLocation:
 
         return TestLocation(file=json_data['file'], line=json_data['line'])
 
+    def json(self) -> Dict:
+        return {'file': self.file, 'line': self.line}
+
+
 class TestItem:
-    def __init__(self, name='root', location=None, last_status='not_run', run_status='not_running', last_run=None):
+    def __init__(self, name='', location=None, last_status='not_run', run_status='not_running', last_run=None, children: Optional[Dict] = None):
         self.name: str = name
         self.location: Optional[TestLocation] = location
         self.last_status: str = last_status
         self.run_status: str = run_status
         self.last_run: Optional[datetime] = last_run
-        self.children: Optional[Dict[str, TestItem]] = None
+        self.children: Optional[Dict[str, TestItem]] = children
 
     @staticmethod
-    def from_json(json_data: dict):
+    def from_json(json_data: Dict):
         item = TestItem(name=json_data['name'],
                         location=TestLocation.from_json(json_data.get('location', None)),
                         last_status=json_data['last_status'],
                         run_status=json_data['run_status'],
                         last_run=date_from_json(json_data.get('last_run', None)))
 
-        if 'children' in json_data:
+        if 'children' in json_data and json_data['children'] is not None:
             item.children = {}
             for c in json_data['children']:
                 child = TestItem.from_json(c)
@@ -49,8 +60,22 @@ class TestItem:
 
         return item
 
+    def json(self) -> Dict:
+        data = {
+            'name': self.name,
+            'location': self.location.json() if self.location is not None else None,
+            'last_status': self.last_status,
+            'run_status': self.run_status,
+            'last_run': date_to_json(self.last_run)
+        }
+
+        if self.children is not None:
+            data['children'] = [c.json() for c in self.children.values()]
+
+        return data
+
 def get_test_stats(item: TestItem):
-    def add_one_to_stats(stats: dict, item: TestItem):
+    def add_one_to_stats(stats: Dict, item: TestItem):
         stats[item.last_status] += 1
         stats[item.run_status] += 1
         stats['total'] += 1
@@ -60,7 +85,7 @@ def get_test_stats(item: TestItem):
             else:
                 stats['last_run'] = item.last_run
 
-    def add_to_stats(stats: dict, item: TestItem):
+    def add_to_stats(stats: Dict, item: TestItem):
         if item.children is not None:
             for c in item.children.values():
                 add_to_stats(stats, c)
@@ -75,12 +100,12 @@ def get_test_stats(item: TestItem):
 class TestList:
     def __init__(self, root: Optional[TestItem] = None):
         if not root:
-            self.root = TestItem()
+            self.root = TestItem(name='root', children={})
         else:
             self.root = root
 
     @staticmethod
-    def from_json(json_data: dict):
+    def from_json(json_data: Dict):
         return TestList(root=TestItem.from_json(json_data))
 
     @staticmethod
@@ -90,19 +115,26 @@ class TestList:
 
         return TestList.from_json(json_data)
 
+    def json(self) -> Dict:
+        return self.root.json()
+
+    def save(self, file_path):
+        with open(file_path, 'w') as f:
+            json.dump(self.json(), f, indent=2)
+
     def is_empty(self):
         return not self.root.children
 
-    def find_test(self, item_path) -> Optional[TestItem]:
+    def find_test(self, item_path: List[str]) -> Optional[TestItem]:
         parent = self.root
-        for i in range(len(item_path)):
+        for p in item_path:
             if parent.children is None:
                 return None
 
-            if not item_path[i] in parent.children:
+            if not p in parent.children:
                 return None
 
-            parent = parent.children[item_path[i]]
+            parent = parent.children[p]
 
         return parent
 
@@ -151,37 +183,18 @@ class TestData:
             self.init()
 
     def init(self):
+        self.commit(meta=TestMetaData(), tests=TestList())
+
+    def commit(self, meta=None, tests=None):
         os.makedirs(self.location, exist_ok=True)
 
-        json_meta = {
-            'last_discovery': '2024-05-04T11:05:12',
-            'running': False
-        }
+        if meta is not None:
+            self.meta = meta
+            self.meta.save(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
-        json_tests = {'name': 'root', 'last_status': 'failed', 'run_status': 'not_running', 'children': [
-            {'name': 'Test.exe', 'last_status': 'failed', 'run_status': 'not_running', 'children': [
-                {'name': 'TestCase1', 'last_status': 'failed', 'run_status': 'not_running', 'children': [
-                    {'name': 'test_this', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': '../texpl/list.py', 'line': 5}, 'last_run': '2024-05-04T12:05:12'},
-                    {'name': 'test_that', 'last_status': 'failed', 'run_status': 'not_running', 'location': {'file': '../texpl/list.py', 'line': 6}, 'last_run': '2024-05-04T11:05:12'},
-                    {'name': 'test_them', 'last_status': 'skipped', 'run_status': 'not_running', 'location': {'file': '../texpl/list.py', 'line': 7}, 'last_run': '2024-05-04T11:05:14'},
-                    {'name': 'test_new', 'last_status': 'not_run', 'run_status': 'not_running', 'location': {'file': '../texpl/list.py', 'line': 10}, 'last_run': None},
-                ]},
-                {'name': 'TestCase2', 'last_status': 'passed', 'run_status': 'not_running', 'children': [
-                    {'name': 'test_me', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': '../texpl/util.py', 'line': 5}, 'last_run': '2024-05-03T13:05:12'}
-                ]},
-                {'name': 'TestCase3', 'last_status': 'passed', 'run_status': 'running', 'children': [
-                    {'name': 'test_me1', 'last_status': 'passed', 'run_status': 'not_running', 'location': {'file': '../texpl/cmd.py', 'line': 5}, 'last_run': '2024-05-04T12:05:12'},
-                    {'name': 'test_me2', 'last_status': 'passed', 'run_status': 'queued', 'location': {'file': '../texpl/cmd.py', 'line': 6}, 'last_run': '2024-05-04T12:05:12'},
-                    {'name': 'test_me', 'last_status': 'passed', 'run_status': 'running', 'location': {'file': '../texpl/cmd.py', 'line': 7}, 'last_run': '2024-05-04T12:05:12'},
-                ]}
-            ]}
-        ]}
-
-        with open(os.path.join(self.location, TEST_DATA_MAIN_FILE), 'w') as f:
-            json.dump(json_meta, f, indent=2)
-
-        with open(os.path.join(self.location, TEST_DATA_TESTS_FILE), 'w') as f:
-            json.dump(json_tests, f, indent=2)
+        if tests is not None:
+            self.tests = tests
+            self.tests.save(os.path.join(self.location, TEST_DATA_TESTS_FILE))
 
     def get_test_list(self, cached=True) -> TestList:
         if self.tests and cached:
