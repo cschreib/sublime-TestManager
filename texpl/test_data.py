@@ -107,6 +107,37 @@ class TestList:
         return parent
 
 
+class TestMetaData:
+    def __init__(self):
+        self.last_discovery: Optional[datetime] = None
+        self.running = False
+        pass
+
+    @staticmethod
+    def from_json(json_data: Dict):
+        data = TestMetaData()
+        data.last_discovery = date_from_json(json_data['last_discovery'])
+        data.running = json_data['running']
+        return data
+
+    @staticmethod
+    def from_file(file_path):
+        with open(file_path, 'r') as f:
+            json_data = json.load(f)
+
+        return TestMetaData.from_json(json_data)
+
+    def json(self) -> Dict:
+        return {
+            'last_discovery': date_to_json(self.last_discovery),
+            'running': self.running
+        }
+
+    def save(self, file_path):
+        with open(file_path, 'w') as f:
+            json.dump(self.json(), f, indent=2)
+
+
 class TestData:
     def __init__(self, location):
         self.location = location
@@ -161,22 +192,19 @@ class TestData:
 
         return self.tests
 
-    def get_test_metadata(self, cached=True):
+    def get_test_metadata(self, cached=True) -> TestMetaData:
         if self.meta and cached:
             return self.meta
 
-        with open(os.path.join(self.location, TEST_DATA_MAIN_FILE), 'r') as f:
-            self.meta = json.load(f)
-
-        self.meta['last_discovery'] = date_from_json(self.meta['last_discovery'])
+        self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
         return self.meta
 
     def get_last_discovery(self, cached=True):
-        return self.get_test_metadata(cached=cached)['last_discovery']
+        return self.get_test_metadata(cached=cached).last_discovery
 
     def is_running_tests(self, cached=True):
-        return self.get_test_metadata(cached=cached)['running']
+        return self.get_test_metadata(cached=cached).running
 
     def get_global_test_stats(self, cached=True):
         if self.stats and cached:
