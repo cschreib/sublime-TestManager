@@ -306,6 +306,8 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
             view = self.window.new_file()
 
             project = self.get_project()
+            assert project is not None
+
             title = TEST_EXPLORER_VIEW_TITLE + os.path.splitext(os.path.basename(project))[0]
             view.set_name(title)
             view.set_syntax_file(TEST_EXPLORER_VIEW_SYNTAX)
