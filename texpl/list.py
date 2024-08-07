@@ -482,13 +482,16 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
         if not data:
             return
 
-        root_folder = data.location
+        project = self.get_project()
+        if not project:
+            return
+
+        root_folder = os.path.dirname(project)
         transient = self.get_setting('explorer_open_files_transient', True) is True
         tests = self.get_selected_tests()
         window = self.view.window()
 
         for test in tests:
-            logger.warning(test)
             item = data.get_test_list().find_test(test.split(TEST_SEPARATOR))
             if not item:
                 continue
@@ -498,6 +501,10 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
                 continue
 
             filename = os.path.join(root_folder, location.file)
+            if not os.path.exists(filename):
+                logger.warning('f{filename} does not exists')
+                continue
+
             location = f'{filename}:{location.line}'
             if transient:
                 window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)

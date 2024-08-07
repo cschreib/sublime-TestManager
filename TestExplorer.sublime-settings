@@ -14,20 +14,4 @@
      * provide the log when reporting an issue.
      */
     "worker_log_level": "WARNING",
-
-    /*
-     * Enabled test frameworks
-     *
-     * Supported test frameworks:
-     *  - Python:
-     *    - pytest (pytest, unittest/pyunit)
-     *  - C++:
-     *    - gtest (GoogleTest)
-     *    - catch2 (Catch2, snitch)
-     *
-     * Enabling additional test frameworks slows down test discovery.
-     * Only enable the frameworks that are used by your project.
-     * Requires a restart of Test Explorer to take effect.
-     */
-    "enabled_test_frameworks": ["pytest"]
 }

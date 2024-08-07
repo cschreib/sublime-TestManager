@@ -16,10 +16,13 @@ LOAD_ORDER = [
     '.util',
     '.cmd',
     '.test_data',
+    '.test_framework',
     '.helpers',
 
     # commands
     '.list',
+    '.discover',
+    '.run',
 
     # meta
     '.TestExplorer',

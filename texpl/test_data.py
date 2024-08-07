@@ -1,10 +1,14 @@
 import json
 import os
+import logging
 from datetime import datetime
 from typing import Optional, List, Dict
 
 TEST_DATA_MAIN_FILE = 'main.json'
 TEST_DATA_TESTS_FILE = 'tests.json'
+
+logger = logging.getLogger('TestExplorer.test_data')
+
 
 def date_from_json(data: Optional[str]) -> Optional[datetime]:
     if data is None:
@@ -33,6 +37,12 @@ class TestLocation:
 
     def json(self) -> Dict:
         return {'file': self.file, 'line': self.line}
+
+
+class DiscoveryError(Exception):
+    def __init__(self, message, details : Optional[str] = None):
+        super().__init__(message)
+        self.details = details
 
 
 class DiscoveredTest:
