@@ -10,6 +10,7 @@ logger = logging.getLogger('TestExplorer.util')
 # Constants
 
 SETTINGS_FILE = 'TestExplorer.sublime-settings'
+SETTINGS_ROOT = 'TestExplorer'
 
 
 # Compatibility
@@ -115,7 +116,7 @@ class SettingsHelper(object):
         self.settings = global_settings
 
         if hasattr(self, 'view'):
-            local_settings = self.view.settings().get('TestExplorer', {})
+            local_settings = self.view.settings().get(SETTINGS_ROOT, {})
         else:
             if hasattr(self, 'window'):
                 window = self.window
@@ -123,19 +124,38 @@ class SettingsHelper(object):
                 window = sublime.active_window()
 
             if window.active_view():
-                local_settings = window.active_view().settings().get('TestExplorer', {})
+                local_settings = window.active_view().settings().get(SETTINGS_ROOT, {})
             else:
-                local_settings = window.settings().get('TestExplorer', {})
+                local_settings = window.settings().get(SETTINGS_ROOT, {})
 
         for k, v in local_settings.items():
             self.settings[k] = v
 
     def get_settings(self):
-        if not hasattr(self, 'settings'):
-            self.load_settings()
-
+        # TODO: avoid reloading all the time; maybe there's a way to trigger?
+        self.load_settings()
         return self.settings
 
     def get_setting(self, key, default=None):
         settings = self.get_settings()
         return settings[key] if key in settings else default
+
+    def set_view_setting(self, key, value):
+        if not hasattr(self, 'view'):
+            sublime.error_message('Can only be called on views')
+
+        local_settings = self.view.settings().get(SETTINGS_ROOT, {})
+        local_settings[key] = value
+
+        self.view.settings().set(SETTINGS_ROOT, local_settings)
+
+    def set_project_setting(self, key, value):
+        if hasattr(self, 'view'):
+            window = self.view().window()
+        else:
+            window = self.window
+
+        data = window.project_data()
+        local_settings = data.setdefault('settings', {}).setdefault(SETTINGS_ROOT, {})
+        local_settings[key] = value
+        window.set_project_data(data)
