@@ -58,6 +58,8 @@ contexts:
         2: string.other.test-explorer.datetime
     - match: \s*\|\s*
       scope: comment.test-explorer.stats.separator
+    - match: \n
+      pop: true
 
   header:
     - match: '^Last discovery:\s+(.+)\n'
@@ -72,10 +74,7 @@ contexts:
 
     - match: '^Tests status:\s+'
       scope: comment.test-explorer.header.stats
-      push:
-        - include: test-stats
-        - match: \n
-          pop: true
+      push: test-stats
 
     - match: '^Showing:\s+'
       scope: comment.test-explorer.header.showing
@@ -90,18 +89,45 @@ contexts:
           pop: true
 
   status-marker:
+    - meta_scope: meta.test-explorer.test-list.line
     - match: \[X\]
       scope: string.other.test-explorer.status-marker.failed
+      pop: true
     - match: \[S\]
       scope: string.other.test-explorer.status-marker.skipped
+      pop: true
     - match: \[\✓\]
       scope: string.other.test-explorer.status-marker.passed
+      pop: true
     - match: \[\_\]
       scope: string.other.test-explorer.status-marker.not-run
+      pop: true
     - match: \[R\]
       scope: string.other.test-explorer.status-marker.running
+      pop: true
     - match: \[Q\]
       scope: string.other.test-explorer.status-marker.queued
+      pop: true
+
+  node:
+    - meta_scope: meta.test-explorer.test-list.line
+    - match: (((?:.*)?/)?.*)(?=​)
+      captures:
+       1: meta.test-explorer.test-list.node
+       2: comment.test-explorer.parent
+      pop: true
+
+  leaf:
+    - meta_scope: meta.test-explorer.test-list.line
+    - match: (((?:.*)?/)?.*)(?=​)
+      captures:
+        1: meta.test-explorer.test-list.leaf
+        2: comment.test-explorer.parent
+      pop: true
+
+  line-stats:
+    - meta_scope: meta.test-explorer.test-list.line
+    - include: test-stats
 
   test-list:
     - match: '^Tests:\s*\n'
@@ -109,30 +135,11 @@ contexts:
       push:
         - match: ^(?!\n)\s*
           push:
-            - meta_scope: meta.test-explorer.test-list.line
             - match: \-
               scope: punctuation.section.list.test-explorer.fold-marker
-              set:
-                - meta_scope: meta.test-explorer.test-list.line
-                - include: status-marker
-                - include: test-stats
-                - match: (((?:[^\s]*)?/)?[^\s]*)
-                  captures:
-                    1: meta.test-explorer.test-list.node
-                    2: comment.test-explorer.
-                - match: \n
-                  pop: true
+              set: [line-stats, node, status-marker]
             - match: (?=\[)
-              set:
-                - meta_scope: meta.test-explorer.test-list.line
-                - include: status-marker
-                - include: test-stats
-                - match: (((?:[^\s]*)?/)?[^\s]*)
-                  captures:
-                    1: meta.test-explorer.test-list.leaf
-                    2: comment.test-explorer.parent
-                - match: \n
-                  pop: true
+              set: [line-stats, leaf, status-marker]
         - match: ^\n
           pop: true
 

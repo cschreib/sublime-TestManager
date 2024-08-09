@@ -24,6 +24,7 @@ TEST_EXPLORER_VIEW_SYNTAX = 'Packages/TestExplorer/syntax/TestExplorer.tmLanguag
 TEST_EXPLORER_VIEW_SETTINGS = {
     'translate_tabs_to_spaces': False,
     'draw_white_space': 'none',
+    'draw_unicode_white_space': 'none',
     'word_wrap': False,
     'test_explorer': True,
 }
@@ -38,6 +39,7 @@ TEST_EXPLORER_DEFAULT_VISIBILITY = {
 SECTION_SELECTOR_PREFIX = 'meta.test-explorer.'
 
 TEST_SEPARATOR = '/'
+END_OF_NAME_MARKER = '\u200B'
 
 STATUS_SYMBOL = {
     'not_run': '_',
@@ -140,7 +142,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         indent = '  ' * depth
         symbol = f'[{STATUS_SYMBOL[self.item_display_status(item)]}]'
         fold = '- ' if item.children is not None else '  '
-        return f'  {indent}{fold}{symbol} {prefix}{item.name}'
+        return f'  {indent}{fold}{symbol} {prefix}{item.name}{END_OF_NAME_MARKER}'
 
     def date_to_string(self, date: Optional[datetime]) -> str:
         return '--' if date is None else date.isoformat()
