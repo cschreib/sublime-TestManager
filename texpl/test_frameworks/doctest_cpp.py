@@ -6,7 +6,6 @@ import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional
 
 from ..list import TEST_SEPARATOR
-
 from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation
 from ..cmd import Cmd
@@ -85,11 +84,11 @@ class DoctestCpp(TestFramework, Cmd):
         path = []
 
         if self.custom_prefix is not None:
-            path.append(self.custom_prefix.split(TEST_SEPARATOR))
+            path += self.custom_prefix.split(TEST_SEPARATOR)
 
         if self.path_prefix_style == 'full':
             path += os.path.normpath(executable).split(os.sep)
-        elif self.path_prefix_style == 'executable':
+        elif self.path_prefix_style == 'basename':
             path.append(os.path.basename(executable))
         elif self.path_prefix_style == 'none':
             pass
