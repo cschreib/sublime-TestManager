@@ -1,1 +1,1 @@
-from . import pytest, catch2
+from . import pytest, catch2, doctest_cpp
