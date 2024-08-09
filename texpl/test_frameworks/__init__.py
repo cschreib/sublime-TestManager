@@ -1,1 +1,1 @@
-from . import pytest
+from . import pytest, catch2
