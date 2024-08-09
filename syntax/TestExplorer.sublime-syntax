@@ -89,7 +89,6 @@ contexts:
           pop: true
 
   status-marker:
-    - meta_scope: meta.test-explorer.test-list.line
     - match: \[X\]
       scope: string.other.test-explorer.status-marker.failed
       pop: true
@@ -110,36 +109,31 @@ contexts:
       pop: true
 
   node:
-    - meta_scope: meta.test-explorer.test-list.line
-    - match: (((?:.*)?/)?.*)(?=​)
+    - match: ​(((?:.*)?/)?.*)​
       captures:
        1: meta.test-explorer.test-list.node
        2: comment.test-explorer.parent
       pop: true
 
   leaf:
-    - meta_scope: meta.test-explorer.test-list.line
-    - match: (((?:.*)?/)?.*)(?=​)
+    - match: ​(((?:.*)?/)?.*)​
       captures:
         1: meta.test-explorer.test-list.leaf
         2: comment.test-explorer.parent
       pop: true
 
-  line-stats:
-    - meta_scope: meta.test-explorer.test-list.line
-    - include: test-stats
-
   test-list:
     - match: '^Tests:\s*\n'
       scope: constant.other.test-explorer.header
       push:
+        - meta_scope: meta.test-explorer.test-list.line
         - match: ^(?!\n)\s*
           push:
             - match: \-
               scope: punctuation.section.list.test-explorer.fold-marker
-              set: [line-stats, node, status-marker]
+              set: [test-stats, node, status-marker]
             - match: (?=\[)
-              set: [line-stats, leaf, status-marker]
+              set: [test-stats, leaf, status-marker]
         - match: ^\n
           pop: true
 

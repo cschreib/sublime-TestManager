@@ -142,7 +142,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         indent = '  ' * depth
         symbol = f'[{STATUS_SYMBOL[self.item_display_status(item)]}]'
         fold = '- ' if item.children is not None else '  '
-        return f'  {indent}{fold}{symbol} {prefix}{item.name}{END_OF_NAME_MARKER}'
+        return f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{prefix}{item.name}{END_OF_NAME_MARKER}'
 
     def date_to_string(self, date: Optional[datetime]) -> str:
         return '--' if date is None else date.isoformat()
