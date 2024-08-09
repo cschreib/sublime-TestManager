@@ -494,17 +494,20 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
         window = self.view.window()
 
         for test in tests:
+            logger.debug(f'opening {test}...')
             item = data.get_test_list().find_test(test.split(TEST_SEPARATOR))
             if not item:
+                logger.warning(f'{test} not found in list')
                 continue
 
             location = item.location
             if location is None:
+                logger.warning(f'no location for {item.name}')
                 continue
 
             filename = os.path.join(root_folder, location.file)
             if not os.path.exists(filename):
-                logger.warning('f{filename} does not exists')
+                logger.warning(f'{filename} does not exists')
                 continue
 
             location = f'{filename}:{location.line}'
