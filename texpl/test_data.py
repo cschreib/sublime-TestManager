@@ -40,7 +40,7 @@ class TestLocation:
 
 
 class DiscoveryError(Exception):
-    def __init__(self, message, details : Optional[str] = None):
+    def __init__(self, message, details : Optional[List[str]] = None):
         super().__init__(message)
         self.details = details
 

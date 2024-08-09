@@ -90,7 +90,7 @@ class PyTest(TestFramework, Cmd):
 
                 data = json.loads(line)
                 if data['errors']:
-                    raise DiscoveryError('Error when discovering tests. See panel for more information.', details='\n'.join(data['errors']))
+                    raise DiscoveryError('Error when discovering tests. See panel for more information.', details=data['errors'])
 
                 return [self.parse_discovered_test(t, working_directory, project_directory) for t in data['tests']]
 
