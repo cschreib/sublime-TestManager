@@ -227,15 +227,16 @@ class Cmd:
 
         return self.worker_run(partial(job, command, stdin, cwd, environment, ignore_errors, encoding, fallback_encoding, task_id), task_id=task_id)
 
-    def cmd_lines(self, command: List[str], ignore_errors=False, success_codes=[0], *args, **kwargs):
+    def cmd_string(self, command: List[str], ignore_errors=False, success_codes=[0], *args, **kwargs):
         error_code, stdout, stderr = self.cmd(command, *args, ignore_errors=ignore_errors, **kwargs)
         if not ignore_errors and error_code not in success_codes:
             message = stdout if stderr is None else stderr
             raise JobError(f'Error when executing command {command}: {message}')
 
-        stdout = stdout.rstrip()
-        if not stdout:
-            return []
+        return stdout
+
+    def cmd_lines(self, command: List[str], ignore_errors=False, success_codes=[0], *args, **kwargs):
+        stdout = self.cmd_string(command, ignore_errors=ignore_errors, success_codes=success_codes, *args, **kwargs)
         return stdout.split('\n')
 
     def decode(self, stream, encoding, fallback_encoding=[]):
