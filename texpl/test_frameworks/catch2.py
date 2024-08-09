@@ -5,6 +5,8 @@ import glob
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional
 
+from ..list import TEST_SEPARATOR
+
 from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation
 from ..cmd import Cmd
@@ -12,11 +14,18 @@ from ..cmd import Cmd
 logger = logging.getLogger('TestExplorer.catch2')
 
 class Catch2(TestFramework, Cmd):
-    def __init__(self, executable_pattern: str = '*', env: Dict[str,str] = {}, cwd: Optional[str] = None, args: List[str] = []):
+    def __init__(self, executable_pattern: str = '*',
+                       env: Dict[str,str] = {},
+                       cwd: Optional[str] = None,
+                       args: List[str] = [],
+                       path_prefix_style: str = 'full',
+                       custom_prefix: Optional[str] = None):
         self.executable_pattern = executable_pattern
         self.env = env
         self.cwd = cwd
         self.args = args
+        self.path_prefix_style = path_prefix_style
+        self.custom_prefix = custom_prefix
 
     @staticmethod
     def from_json(json_data: Dict):
@@ -24,7 +33,9 @@ class Catch2(TestFramework, Cmd):
         return Catch2(executable_pattern=json_data.get('executable_pattern', '*'),
                       env=json_data.get('env', {}),
                       cwd=json_data.get('cwd', None),
-                      args=json_data.get('args', []))
+                      args=json_data.get('args', []),
+                      path_prefix_style=json_data.get('path_prefix_style', 'full'),
+                      custom_prefix=json_data.get('custom_prefix', None))
 
     def discover(self, project_root_dir: str) -> List[DiscoveredTest]:
         # Set up current working directory. Default to the project root dir.
@@ -42,7 +53,7 @@ class Catch2(TestFramework, Cmd):
             discover_args = [executable, '-r', 'xml', '--list-tests']
             output = self.cmd_string(discover_args + self.args, env=self.env, cwd=cwd)
             try:
-                return self.parse_discovery(output, executable, cwd, project_root_dir)
+                return self.parse_discovery(output, executable, project_root_dir)
             except DiscoveryError as e:
                 errors.append(e.details if e.details else str(e))
                 return []
@@ -58,7 +69,7 @@ class Catch2(TestFramework, Cmd):
 
         return tests
 
-    def parse_discovered_test(self, test: ET.Element, executable: str, working_directory: str, project_directory: str):
+    def parse_discovered_test(self, test: ET.Element, executable: str, project_directory: str):
         # Make file path relative to project directory.
         location = test.find('SourceInfo')
         assert location is not None
@@ -75,7 +86,18 @@ class Catch2(TestFramework, Cmd):
         line = line.text
         assert line is not None
 
-        path = os.path.normpath(executable).split(os.sep)
+        path = []
+
+        if self.custom_prefix is not None:
+            path.append(self.custom_prefix.split(TEST_SEPARATOR))
+
+        if self.path_prefix_style == 'full':
+            path += os.path.normpath(executable).split(os.sep)
+        elif self.path_prefix_style == 'executable':
+            path.append(os.path.basename(executable))
+        elif self.path_prefix_style == 'none':
+            pass
+
         fixture = test.find('ClassName')
         if fixture and fixture.text:
             path.append(fixture.text)
@@ -89,11 +111,11 @@ class Catch2(TestFramework, Cmd):
 
         return DiscoveredTest(full_name=path, location=TestLocation(file=file, line=int(line)))
 
-    def parse_discovery(self, output: str, executable: str, working_directory: str, project_directory: str) -> List[DiscoveredTest]:
+    def parse_discovery(self, output: str, executable: str, project_directory: str) -> List[DiscoveredTest]:
         tests = []
         for t in ET.fromstring(output):
             if t.tag == 'TestCase':
-                tests.append(self.parse_discovered_test(t, executable, working_directory, project_directory))
+                tests.append(self.parse_discovered_test(t, executable, project_directory))
 
         return tests
 
