@@ -108,12 +108,12 @@ def abbreviate_dir(dirname):
 
 # settings helpers
 
-global_settings = sublime.load_settings(SETTINGS_FILE).to_dict()
+global_settings = {}
 
 class SettingsHelper(object):
 
     def load_settings(self):
-        self.settings = global_settings
+        self.settings = sublime.load_settings(SETTINGS_FILE).to_dict()
 
         if hasattr(self, 'view'):
             local_settings = self.view.settings().get(SETTINGS_ROOT, {})
