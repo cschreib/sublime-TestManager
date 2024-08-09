@@ -303,6 +303,8 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
         if not data_location:
             return
 
+        logger.debug(f'opening list with location: {data_location}')
+
         views = find_views_by_settings(test_view='list', test_data_full_path=data_location)
         if not views and not refresh_only:
             view = self.window.new_file()
