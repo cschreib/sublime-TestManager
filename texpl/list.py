@@ -118,25 +118,27 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
         return visibility[item.last_status]
 
-    def build_items(self, items: Dict[str, TestItem], depth=0, prefix='', visibility=None) -> List[Tuple[TestItem, str]]:
-        if len(items) == 1:
-            item = next(iter(items.values()))
-            if item.children is not None:
-                return self.build_items(item.children, depth=depth, prefix=self.add_prefix(prefix, item.name), visibility=visibility)
-            else:
-                if self.item_is_visible(item, visibility=visibility):
-                    return [(item, self.build_item(item, depth=depth, prefix=prefix))]
-                else:
-                    return []
+    def build_items(self, item: TestItem, depth=0, prefix='', visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
+        if item.children:
+            fold = len(item.children) == 1
 
-        lines = []
-        for item in items.values():
-            if self.item_is_visible(item, visibility=visibility):
+            lines = []
+            if not hide_parent and not fold and self.item_is_visible(item, visibility=visibility):
                 lines += [(item, self.build_item(item, depth=depth, prefix=prefix))]
-            if item.children is not None:
-                lines += self.build_items(item.children, depth=depth+1, prefix=self.add_prefix(prefix, item.name), visibility=visibility)
 
-        return lines
+            if not hide_parent:
+                new_depth = depth + 1 if not fold else depth
+                new_prefix = self.add_prefix(prefix, item.name)
+            else:
+                new_depth = depth
+                new_prefix = ''
+
+            for child in item.children.values():
+                lines += self.build_items(child, depth=new_depth, prefix=new_prefix, visibility=visibility)
+
+            return lines
+        else:
+            return [(item, self.build_item(item, depth=depth, prefix=prefix))]
 
     def build_item(self, item: TestItem, depth=0, prefix='') -> str:
         indent = '  ' * depth
@@ -165,7 +167,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
     def build_tests(self, root: TestItem, visibility=None):
         assert root.children is not None
 
-        lines = self.build_items(root.children, depth=0, prefix='', visibility=visibility)
+        lines = self.build_items(root, depth=0, prefix='', visibility=visibility, hide_parent=True)
         if len(lines) == 0:
             return []
 
