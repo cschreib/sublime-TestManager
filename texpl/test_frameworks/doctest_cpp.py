@@ -1,5 +1,4 @@
 import os
-import json
 import logging
 import glob
 import xml.etree.ElementTree as ET
