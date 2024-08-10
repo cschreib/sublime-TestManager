@@ -54,10 +54,13 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
 
         frameworks = [TestFramework.from_json(f) for f in frameworks]
 
-        thread = self.worker_run_async(partial(self.discover_tests, data, project, frameworks))
+        sort = self.get_setting('sort_tests')
+        assert isinstance(sort, bool)
+
+        thread = self.worker_run_async(partial(self.discover_tests, data, project, frameworks, sort=sort))
         thread.start()
 
-    def discover_tests(self, data: TestData, project: str, frameworks: List[TestFramework]):
+    def discover_tests(self, data: TestData, project: str, frameworks: List[TestFramework], sort=False):
         start = datetime.now()
 
         root_dir = os.path.dirname(project)
@@ -83,6 +86,11 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
             return
 
         logger.info(f'Discovered {len(discovered_tests)} tests')
+
+        if sort:
+            # Sort by increasing depth first, then by name.
+            comparator = lambda test: (len(test.full_name), '/'.join(test.full_name))
+            discovered_tests = sorted(discovered_tests, key=comparator)
 
         data.notify_discovered_tests(discovered_tests, discovery_time=start)
 

@@ -14,4 +14,11 @@
      * provide the log when reporting an issue.
      */
     "worker_log_level": "WARNING",
+
+    /*
+     * Whether to sort the tests in the test list or not.
+     * If not sorted, tests will be displayed in the order they were discovered.
+     * The exact order then depends on the native order from the testing framework.
+     */
+    "sort_tests": true
 }
