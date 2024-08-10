@@ -9,7 +9,7 @@ from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation
 from ..cmd import Cmd
 
-logger = logging.getLogger('TestExplorer.catch2')
+logger = logging.getLogger('TestExplorer.doctest-cpp')
 
 class DoctestCpp(TestFramework, Cmd):
     def __init__(self, executable_pattern: str = '*',
