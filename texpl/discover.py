@@ -8,7 +8,7 @@ from typing import List
 import sublime
 from sublime_plugin import WindowCommand
 
-from .cmd import Cmd, JobError
+from .cmd import Cmd
 from .helpers import TestDataHelper
 from .test_framework import TestFramework
 from .test_data import DiscoveryError, TestData
@@ -60,6 +60,12 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
         thread = self.worker_run_async(partial(self.discover_tests, data, project, frameworks, sort=sort))
         thread.start()
 
+    def display_in_panel(self, content):
+        panel_name = 'TestExplorer.discovery'
+        panel = self.window.create_output_panel(panel_name)
+        panel.run_command('test_explorer_panel_write', {'content': content})
+        self.window.run_command('show_panel', {'panel': f'output.{panel_name}'})
+
     def discover_tests(self, data: TestData, project: str, frameworks: List[TestFramework], sort=False):
         start = datetime.now()
 
@@ -72,7 +78,8 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
             sublime.error_message(str(e))
             logger.error(str(e))
             logger.error(e.details)
-            # TODO: display error details in a panel
+            if e.details:
+                self.display_in_panel('\n'.join(e.details))
             return
         except Exception as e:
             message = str(e)
@@ -81,8 +88,7 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
                 sublime.error_message(message)
             else:
                 sublime.error_message('Error running test discovery; see panel for more information.')
-                # TODO: display full error in a panel
-
+                self.display_in_panel(message)
             return
 
         logger.info(f'Discovered {len(discovered_tests)} tests')

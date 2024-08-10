@@ -5,6 +5,8 @@ __version__ = '1.0.0'
 
 # Import all the commands
 
+from .util import TestExplorerPanelWriteCommand, TestExplorerPanelAppendCommand
+
 from .list import (TestExplorerListCommand, TestExplorerRefreshCommand,
                    TestExplorerReplaceCommand, TestExplorerToggleShowCommand,
                    TestExplorerStartSelectedCommand,

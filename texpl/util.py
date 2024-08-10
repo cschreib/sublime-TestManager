@@ -4,6 +4,7 @@ from os import path
 import logging
 
 import sublime
+from sublime_plugin import TextCommand
 
 logger = logging.getLogger('TestExplorer.util')
 
@@ -73,6 +74,32 @@ class StatusSpinner(object):
     def start(self):
         self.thread.start()
         sublime.set_timeout(self.progress, 0)
+
+
+# Panel Helper
+
+class TestExplorerPanelWriteCommand(TextCommand):
+
+    def is_visible(self):
+        return False
+
+    def run(self, edit, content=''):
+        self.view.set_read_only(False)
+        if self.view.size() > 0:
+            self.view.erase(edit, sublime.Region(0, self.view.size()))
+        self.view.insert(edit, 0, content)
+        self.view.set_read_only(True)
+
+
+class TestExplorerPanelAppendCommand(TextCommand):
+
+    def is_visible(self):
+        return False
+
+    def run(self, edit, content='', scroll=False):
+        self.view.insert(edit, self.view.size(), content)
+        if scroll:
+            self.view.show(self.view.size())
 
 
 # Directory helpers

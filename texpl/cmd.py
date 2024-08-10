@@ -230,8 +230,12 @@ class Cmd:
     def cmd_string(self, command: List[str], ignore_errors=False, success_codes=[0], *args, **kwargs):
         error_code, stdout, stderr = self.cmd(command, *args, ignore_errors=ignore_errors, **kwargs)
         if not ignore_errors and error_code not in success_codes:
+            command_str = ' '.join(command)
             message = stdout if stderr is None else stderr
-            raise JobError(f'Error when executing command {command}: {message}')
+            if message:
+                raise JobError(f'Error when executing command "{command_str}" (exit code {error_code}):\n\n{message}')
+            else:
+                raise JobError(f'Error when executing command "{command_str}" (exit code {error_code}).')
 
         return stdout
 
