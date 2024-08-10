@@ -119,10 +119,11 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         return visibility[item.last_status]
 
     def build_items(self, item: TestItem, depth=0, prefix='', visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
+        lines = []
+
         if item.children:
             fold = len(item.children) == 1
 
-            lines = []
             if not hide_parent and not fold and self.item_is_visible(item, visibility=visibility):
                 lines += [(item, self.build_item(item, depth=depth, prefix=prefix))]
 
@@ -135,10 +136,11 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
             for child in item.children.values():
                 lines += self.build_items(child, depth=new_depth, prefix=new_prefix, visibility=visibility)
-
-            return lines
         else:
-            return [(item, self.build_item(item, depth=depth, prefix=prefix))]
+            if not hide_parent and self.item_is_visible(item, visibility=visibility):
+                lines += [(item, self.build_item(item, depth=depth, prefix=prefix))]
+
+        return lines
 
     def build_item(self, item: TestItem, depth=0, prefix='') -> str:
         indent = '  ' * depth
