@@ -69,8 +69,6 @@ class DoctestCpp(TestFramework, Cmd):
         return tests
 
     def parse_discovered_test(self, test: ET.Element, executable: str, project_directory: str):
-        logger.warning(test)
-
         # Make file path relative to project directory.
         file = test.attrib.get('filename')
         assert file is not None
@@ -100,7 +98,6 @@ class DoctestCpp(TestFramework, Cmd):
         assert name is not None
 
         path.append(name)
-        logger.warning(path)
 
         return DiscoveredTest(full_name=path, location=TestLocation(file=file, line=int(line)))
 
