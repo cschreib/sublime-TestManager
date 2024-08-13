@@ -57,6 +57,17 @@ class PyTest(TestFramework, Cmd):
                       path_prefix_style=json_data.get('path_prefix_style', 'full'),
                       custom_prefix=json_data.get('custom_prefix', None))
 
+    def get_current_working_directory(self, project_root_dir: str):
+        # Set up current working directory. Default to the project root dir.
+        if self.cwd is not None:
+            cwd = self.cwd
+            if not os.path.isabs(cwd):
+                cwd = os.path.join(project_root_dir, cwd)
+        else:
+            cwd = project_root_dir
+
+        return cwd
+
     def discover(self, project_root_dir: str) -> List[DiscoveredTest]:
         # Default discovery output of pytest does not contain file & line numbers.
         # We can import our own pytest plugin to fill the gap.
@@ -66,13 +77,7 @@ class PyTest(TestFramework, Cmd):
         plugin_path = os.path.join(here_path, PYTEST_DISCOVERY_PLUGIN_PATH)
         env['PYTHONPATH'] = os.pathsep.join(get_os_python_path() + [plugin_path])
 
-        # Set up current working directory. Default to the project root dir.
-        if self.cwd is not None:
-            cwd = self.cwd
-            if not os.path.isabs(cwd):
-                cwd = os.path.join(project_root_dir, cwd)
-        else:
-            cwd = project_root_dir
+        cwd = self.get_current_working_directory(project_root_dir)
 
         discover_args = [self.python, '-m', 'pytest', '--collect-only', '-q']
         lines = self.cmd_lines(discover_args + self.args, env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)

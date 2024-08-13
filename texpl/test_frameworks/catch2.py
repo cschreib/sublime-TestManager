@@ -35,7 +35,7 @@ class Catch2(TestFramework, Cmd):
                       path_prefix_style=json_data.get('path_prefix_style', 'full'),
                       custom_prefix=json_data.get('custom_prefix', None))
 
-    def discover(self, project_root_dir: str) -> List[DiscoveredTest]:
+    def get_current_working_directory(self, project_root_dir: str):
         # Set up current working directory. Default to the project root dir.
         if self.cwd is not None:
             cwd = self.cwd
@@ -43,6 +43,11 @@ class Catch2(TestFramework, Cmd):
                 cwd = os.path.join(project_root_dir, cwd)
         else:
             cwd = project_root_dir
+
+        return cwd
+
+    def discover(self, project_root_dir: str) -> List[DiscoveredTest]:
+        cwd = self.get_current_working_directory(project_root_dir)
 
         errors = []
         tests = []
