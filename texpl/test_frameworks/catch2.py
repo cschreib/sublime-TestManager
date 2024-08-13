@@ -102,7 +102,8 @@ class Catch2(TestFramework, Cmd):
             pass
 
         fixture = test.find('ClassName')
-        if fixture and fixture.text:
+        if fixture is not None and fixture.text is not None:
+            assert len(fixture.text) > 0
             path.append(fixture.text)
 
         name = test.find('Name')
