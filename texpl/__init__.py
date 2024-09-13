@@ -10,7 +10,7 @@ from .util import TestExplorerPanelWriteCommand, TestExplorerPanelAppendCommand
 from .list import (TestExplorerListCommand, TestExplorerRefreshAllCommand, TestExplorerRefreshCommand,
                    TestExplorerReplaceCommand, TestExplorerToggleShowCommand,
                    TestExplorerStartSelectedCommand,
-                   TestExplorerOpenFile)
+                   TestExplorerOpenFile, TestExplorerEventListener)
 
 from .discover import (TestExplorerDiscoverCommand)
 

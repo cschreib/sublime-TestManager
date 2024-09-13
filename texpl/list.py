@@ -7,7 +7,7 @@ from functools import partial
 from typing import Optional, List, Dict, Tuple
 
 import sublime
-from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand
+from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, EventListener
 
 from .util import find_views_by_settings, SettingsHelper, readable_date_delta
 from .cmd import Cmd
@@ -490,6 +490,13 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
             goto = f'item:{selected}'
 
         sublime.set_timeout(partial(self.refresh, data, goto, no_scroll))
+
+
+class TestExplorerEventListener(EventListener, SettingsHelper):
+
+    def on_activated(self, view):
+        if view.settings().get('test_view') == 'list' and self.get_setting('explorer_update_on_focus', True):
+            view.run_command('test_explorer_refresh')
 
 
 class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
