@@ -9,7 +9,6 @@ from functools import partial
 import sys
 import traceback
 import time
-import atexit
 from typing import Callable, List
 
 def get_thread_stack(thread):
@@ -40,7 +39,7 @@ class WorkQueue:
 
     def __init__(self, name):
         self.name = name
-        self.worker_queue = queue.Queue(1)
+        self.worker_queue = queue.Queue(10)
         self.output_queue = {}
         self.output_queue_lock = threading.Lock()
         self.last_task_id = 0
@@ -95,37 +94,13 @@ class WorkQueue:
         for entry in get_thread_stack(self.worker_thread):
             worker_logger.warning("[%s,%s,%s] " + entry.replace('\r', '').split('\n')[0])
 
-    def push_new_job(self, task_id, job):
-        num_tries = 0
-        while True:
-            try:
-                self.worker_queue.put((task_id, job), timeout=0.1)
-                return
-            except Exception as e:
-                worker_logger.debug("[%s,%s,%s] put timed out, waiting some more...", self.name, threading.get_ident(), task_id)
-                num_tries += 1
-                if num_tries == self.max_tries:
-                    self.dump_stack('put', task_id)
-                    raise e
+    def push_new_job(self, task_id, job, timeout=None):
+        self.worker_queue.put((task_id, job), timeout=timeout)
 
     def get_job_output(self, task_id, timeout=None):
         try:
-            num_tries = 0
             queue = self.get_output_queue(task_id)
-
-            start = time.time()
-            while timeout is None or time.time() - start < timeout:
-                try:
-                    return queue.get(timeout=0.1)
-                except Exception as e:
-                    worker_logger.debug("[%s,%s,%s] get timed out, waiting some more...", self.name, threading.get_ident(), task_id)
-                    num_tries += 1
-                    if num_tries == self.max_tries:
-                        self.dump_stack('get', task_id)
-                        raise e
-
-            raise Exception(f'Job timeout for task {task_id}')
-
+            return queue.get(timeout=timeout)
         finally:
             self.release_output_queue(task_id)
 
