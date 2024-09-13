@@ -12,7 +12,7 @@ from .list import TestExplorerTextCmd
 from .test_framework import TestFramework
 from .discover import NO_FRAMEWORK_CONFIGURED
 from .util import SettingsHelper
-from .test_data import TestData, StartedRun, FinishedRun, TEST_SEPARATOR
+from .test_data import TestData, TestItem, StartedRun, FinishedRun, TEST_SEPARATOR
 
 logger = logging.getLogger('TestExplorer.runner')
 
@@ -51,12 +51,28 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, SettingsHelp
         frameworks: List[TestFramework] = [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
 
         tests = self.get_selected_tests()
+        if len(tests) > 0:
+            sublime.set_timeout_async(partial(self.run_tests, data, project, frameworks, tests))
+            return
 
-        sublime.set_timeout_async(partial(self.run_tests, data, project, frameworks, tests))
+        tests = self.get_selected_folders()
+        if len(tests) > 0:
+            sublime.set_timeout_async(partial(self.run_tests, data, project, frameworks, tests))
+            return
 
     def run_tests(self, data: TestData, project: str, frameworks: List[TestFramework], tests: List[str]):
         test_ids = {}
         test_paths = []
+
+        def add_test(path: List[str], item: TestItem):
+            if item.children is not None:
+                for child in item.children.values():
+                    add_test(path + [item.name], child)
+            else:
+                assert item.location is not None
+                test_paths.append(path + [item.name])
+                test_ids.setdefault(item.framework_id, {}).setdefault(item.location.executable, []).append(item.run_id)
+
         for test in tests:
             logger.debug(f'running {test}...')
             path = test.split(TEST_SEPARATOR)
@@ -64,12 +80,9 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, SettingsHelp
             if not item:
                 logger.warning(f'{test} not found in list')
                 continue
-            if item.location is None:
-                logger.warning(f'{test} is not runnable (no location)')
-                continue
 
-            test_paths.append(path)
-            test_ids.setdefault(item.framework_id, {}).setdefault(item.location.executable, []).append(item.run_id)
+            add_test(path[:-1], item)
+
 
         # TODO: put this in background thread
         data.notify_run_started(StartedRun(test_paths))
