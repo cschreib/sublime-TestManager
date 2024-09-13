@@ -1,7 +1,10 @@
 # coding: utf-8
+import datetime
 import sys
 from os import path
 import logging
+from datetime import datetime
+from typing import Optional
 
 import sublime
 from sublime_plugin import TextCommand
@@ -132,6 +135,34 @@ def abbreviate_dir(dirname):
         pass
     return dirname
 
+
+# Date helpers
+
+def readable_date_delta(from_date: datetime, until_date: Optional[datetime] = None):
+    # From https://stackoverflow.com/a/5333305
+
+    if until_date is None:
+        until_date = datetime.now()
+
+    delta = until_date - from_date
+
+    # deltas store time as seconds and days, we have to get hours and minutes ourselves
+    delta_minutes = delta.seconds // 60
+    delta_hours = delta_minutes // 60
+    delta_minutes = delta_minutes % 60
+
+    def plur(it: int):
+        return '' if it==1 else 's'
+
+    ## show a fuzzy but useful approximation of the time delta
+    if delta.days:
+        return '%d day%s ago' % (delta.days, plur(delta.days))
+    elif delta_hours:
+        return '%d hour%s %d minute%s ago' % (delta_hours, plur(delta_hours), delta_minutes, plur(delta_minutes))
+    elif delta_minutes:
+        return '%d minute%s ago' % (delta_minutes, plur(delta_minutes))
+    else:
+        return '%d second%s ago' % (delta.seconds, plur(delta.seconds))
 
 # settings helpers
 

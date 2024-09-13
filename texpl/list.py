@@ -9,7 +9,7 @@ from typing import Optional, List, Dict, Tuple
 import sublime
 from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand
 
-from .util import find_views_by_settings, SettingsHelper
+from .util import find_views_by_settings, SettingsHelper, readable_date_delta
 from .cmd import Cmd
 from .helpers import TestDataHelper
 from .test_data import get_test_stats, TestItem, TestData, TEST_SEPARATOR, RunStatus, test_name_to_path
@@ -165,7 +165,10 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         return f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{prefix}{item.name}{END_OF_NAME_MARKER}'
 
     def date_to_string(self, date: Optional[datetime]) -> str:
-        return '--' if date is None else date.isoformat()
+        if date is None:
+            return '--'
+
+        return f'{readable_date_delta(date)} ({date.isoformat()})'
 
     def stats_to_string(self, stats) -> str:
         stats['failed'] += stats['crashed']

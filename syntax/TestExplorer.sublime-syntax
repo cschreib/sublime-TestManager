@@ -29,7 +29,6 @@ contexts:
         - match: ^\n
           pop: true
 
-
   test-stats:
     - match: (failed:0)
       captures:
@@ -63,25 +62,28 @@ contexts:
       captures:
         1: comment.other.test-explorer.tests.total
         2: constant.numeric.other.test-explorer.tests.total
-    - match: (last-run:)([^\s]+)
+    - match: (last-run:)([^\(]+)(\([^\)]+\))
       captures:
         1: comment.other.test-explorer.tests.last-run
-        2: string.other.test-explorer.datetime
+        2: string.other.test-explorer.time-delta
+        3: comment.other.test-explorer.datetime
     - match: \s*\|\s*
       scope: comment.test-explorer.stats.separator
     - match: \n
       pop: true
 
   header:
-    - match: '^Last discovery:\s+(.+)\n'
+    - match: '^Last discovery:\s+([^\(]+)(\([^\)]+\))\n'
       scope: comment.test-explorer.header.discovery
       captures:
-        1: string.other.test-explorer.datetime
+        1: string.other.test-explorer.time-delta
+        2: comment.other.test-explorer.datetime
 
-    - match: '^Last run:\s+(.+)\n'
+    - match: '^Last run:\s+([^\(]+)(\([^\)]+\))\n'
       scope: comment.test-explorer.header.last-run
       captures:
-        1: string.other.test-explorer.datetime
+        1: string.other.test-explorer.time-delta
+        2: comment.other.test-explorer.datetime
 
     - match: '^Tests status:\s+'
       scope: comment.test-explorer.header.stats
