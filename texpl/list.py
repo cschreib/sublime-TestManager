@@ -326,7 +326,7 @@ class TestExplorerRefreshAllCommand(ApplicationCommand, TestDataHelper):
 
         views = find_views_by_settings(test_view='list', test_data_full_path=data_location)
         for view in views:
-            view.run_command('test_explorer_refresh')
+            view.run_command('test_explorer_refresh', {'no_scroll': True})
 
 
 class TestExplorerListCommand(WindowCommand, TestDataHelper):
@@ -377,36 +377,20 @@ class TestExplorerListCommand(WindowCommand, TestDataHelper):
 
 class TestExplorerMoveCmd(TestExplorerTextCmd):
 
-    def goto(self, goto):
+    def goto(self, goto, no_scroll=False):
         parts = goto.split(':')
         if parts[0] == 'item':
-            self.move_to_item(':'.join(parts[1:]))
+            self.move_to_item(':'.join(parts[1:]), no_scroll=no_scroll)
         elif parts[0] == 'list-top':
-            self.move_to_list_top()
+            self.move_to_list_top(no_scroll=no_scroll)
         elif parts[0] == "point":
             try:
                 point = int(parts[1])
-                self.move_to_point(point)
+                self.move_to_point(point, no_scroll=no_scroll)
             except ValueError:
                 pass
 
-    def parse_goto(self, goto):
-        what, which, where = None, None, None
-        parts = goto.split(':')
-        what = parts[0]
-        if len(parts) > 1:
-            try:
-                which = int(parts[1])
-            except ValueError:
-                which = parts[1]
-        if len(parts) > 2:
-            try:
-                where = int(parts[2])
-            except ValueError:
-                where = parts[2]
-        return (what, which, where)
-
-    def move_to_point(self, point):
+    def move_to_point(self, point, no_scroll=False):
         self.view.sel().clear()
         self.view.sel().add(sublime.Region(point))
 
@@ -416,13 +400,14 @@ class TestExplorerMoveCmd(TestExplorerTextCmd):
 
         pointregion = sublime.Region(pointstart, pointend)
 
-        if pointrow < 10:
-            self.view.set_viewport_position((0.0, 0.0), False)
-        elif not self.view.visible_region().contains(pointregion):
-            self.view.show(pointregion, False)
+        if not no_scroll:
+            if pointrow < 10:
+                self.view.set_viewport_position((0.0, 0.0), False)
+            elif not self.view.visible_region().contains(pointregion):
+                self.view.show(pointregion, False)
 
-    def move_to_region(self, region):
-        self.move_to_point(self.view.line(region).begin())
+    def move_to_region(self, region, no_scroll=False):
+        self.move_to_point(self.view.line(region).begin(), no_scroll=no_scroll)
 
     def prev_region(self, regions, point):
         before = [r for r in regions if self.view.line(r).end() < point]
@@ -438,21 +423,21 @@ class TestExplorerMoveCmd(TestExplorerTextCmd):
         else:
             return self.prev_region(regions, point)
 
-    def move_to_item(self, which='', where=None):
+    def move_to_item(self, which='', where=None, no_scroll=False):
         tests = [r for r in self.get_all_item_regions() if which == self.view.substr(r)]
         if not tests:
             self.move_to_list_top()
             return
 
-        self.move_to_region(tests[0])
+        self.move_to_region(tests[0], no_scroll=no_scroll)
 
-    def move_to_list_top(self):
+    def move_to_list_top(self, no_scroll=False):
         regs = self.view.find_by_selector('meta.test-explorer.test-list.node')
         if not regs:
             regs = self.view.find_by_selector('markup.inserted.test-explorer.no-tests')
 
         if regs:
-            self.move_to_region(regs[0])
+            self.move_to_region(regs[0], no_scroll=no_scroll)
 
 
 class TestExplorerReplaceCommand(TextCommand, TestExplorerMoveCmd):
@@ -460,16 +445,16 @@ class TestExplorerReplaceCommand(TextCommand, TestExplorerMoveCmd):
     def is_visible(self):
         return False
 
-    def run(self, edit, goto, tests):
+    def run(self, edit, goto, tests, no_scroll=False):
         self.view.set_read_only(False)
         self.view.replace(edit, sublime.Region(0, self.view.size()), tests)
         self.view.set_read_only(True)
         self.view.sel().clear()
 
         if goto:
-            self.goto(goto)
+            self.goto(goto, no_scroll=no_scroll)
         else:
-            self.goto(GOTO_DEFAULT)
+            self.goto(GOTO_DEFAULT, no_scroll=no_scroll)
 
 
 class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerListBuilder):
@@ -477,16 +462,16 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
     def is_visible(self):
         return False
 
-    def refresh(self, data, goto):
+    def refresh(self, data, goto, no_scroll):
         try:
             tests = self.build_list(data)
         except Exception as e:
             logger.error('error building test list: {}'.format(str(e)))
             raise
 
-        self.view.run_command('test_explorer_replace', {'goto': goto, 'tests': tests})
+        self.view.run_command('test_explorer_replace', {'goto': goto, 'tests': tests, 'no_scroll': no_scroll})
 
-    def run(self, edit):
+    def run(self, edit, no_scroll=False):
         if not self.view.settings().get('test_view') == 'list':
             return
 
@@ -501,7 +486,7 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
         if selected:
             goto = f'item:{selected}'
 
-        sublime.set_timeout(partial(self.refresh, data, goto))
+        sublime.set_timeout(partial(self.refresh, data, goto, no_scroll))
 
 
 class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
