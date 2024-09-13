@@ -13,19 +13,36 @@ TEST_SEPARATOR = '/'
 class TestStatus(enum.Enum):
     PASSED = 'passed'
     FAILED = 'failed'
+    CRASHED = 'crashed'
+    STOPPED = 'stopped'
     SKIPPED = 'skipped'
     NOT_RUN = 'not_run'
+
 
 class RunStatus(enum.Enum):
     NOT_RUNNING = 'not_running'
     RUNNING = 'running'
     QUEUED = 'queued'
 
+
+STATUS_PRIORITY = {
+    None: -1,
+    TestStatus.NOT_RUN: 0,
+    TestStatus.STOPPED: 1,
+    TestStatus.SKIPPED: 2,
+    TestStatus.PASSED: 3,
+    TestStatus.FAILED: 4,
+    TestStatus.CRASHED: 5
+}
+
 TEST_DATA_MAIN_FILE = 'main.json'
 TEST_DATA_TESTS_FILE = 'tests.json'
 
 logger = logging.getLogger('TestExplorer.test_data')
 
+
+def status_merge(status1, status2):
+    return status1 if STATUS_PRIORITY[status1] > STATUS_PRIORITY[status2] else status2
 
 def date_from_json(data: Optional[str]) -> Optional[datetime]:
     if data is None:
@@ -71,6 +88,29 @@ class DiscoveredTest:
         self.framework_id = framework_id
         self.run_id = run_id
         self.location = location
+
+
+class StartedTest:
+    def __init__(self, full_name: List[str] = [], start_time=None):
+        self.full_name = full_name
+        self.start_time = datetime.now() if start_time is None else start_time
+
+
+class FinishedTest:
+    def __init__(self, full_name: List[str] = [], status=TestStatus.NOT_RUN, message=''):
+        self.full_name = full_name
+        self.status = status
+        self.message = message
+
+
+class StartedRun:
+    def __init__(self, tests: List[List[str]]):
+        self.tests = tests
+
+
+class FinishedRun:
+    def __init__(self, tests: List[List[str]]):
+        self.tests = tests
 
 
 class TestItem:
@@ -127,6 +167,25 @@ class TestItem:
     def update_from_discovered(self, test: DiscoveredTest):
         self.location = test.location
         self.run_id = test.run_id
+
+    def notify_run_queued(self):
+        self.run_status = RunStatus.QUEUED
+
+    def notify_run_stopped(self):
+        if self.run_status == RunStatus.RUNNING:
+            self.last_status = TestStatus.CRASHED
+        elif self.run_status == RunStatus.QUEUED:
+            self.last_status = TestStatus.STOPPED
+        self.run_status = RunStatus.NOT_RUNNING
+
+    def update_from_started(self, test: StartedTest):
+        self.last_run = test.start_time
+        self.run_status = RunStatus.RUNNING
+
+    def update_from_finished(self, test: FinishedTest):
+        self.last_status = test.status
+        self.run_status = RunStatus.NOT_RUNNING
+
 
 def get_test_stats(item: TestItem):
     def add_one_to_stats(stats: Dict, item: TestItem):
@@ -355,3 +414,57 @@ class TestData:
             new_tests.update_test(test.full_name, item)
 
         self.commit(meta=meta, tests=new_tests)
+
+    def notify_run_started(self, run: StartedRun):
+        logger.info('test run started')
+
+        meta = self.get_test_metadata(cached=False)
+        meta.running = True
+
+        tests = self.get_test_list(cached=False)
+        for path in run.tests:
+            item = tests.find_test(path)
+            if not item:
+                raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(path)))
+
+            item.notify_run_queued()
+
+        self.commit(meta=meta, tests=tests)
+
+    def notify_run_finished(self, run: FinishedRun):
+        logger.info('test run finished')
+
+        meta = self.get_test_metadata(cached=False)
+        meta.running = False
+
+        tests = self.get_test_list(cached=False)
+        for path in run.tests:
+            item = tests.find_test(path)
+            if not item:
+                raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(path)))
+
+            item.notify_run_stopped()
+
+        self.commit(meta=meta, tests=tests)
+
+    def notify_test_started(self, test: StartedTest):
+        logger.info('started {}'.format(TEST_SEPARATOR.join(test.full_name)))
+
+        tests = self.get_test_list(cached=False)
+        item = tests.find_test(test.full_name)
+        if not item:
+            raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(test.full_name)))
+
+        item.update_from_started(test)
+        self.commit(tests=tests)
+
+    def notify_test_finished(self, test: FinishedTest):
+        logger.info('finished {}'.format(TEST_SEPARATOR.join(test.full_name)))
+
+        tests = self.get_test_list(cached=False)
+        item = tests.find_test(test.full_name)
+        if not item:
+            raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(test.full_name)))
+
+        item.update_from_finished(test)
+        self.commit(tests=tests)

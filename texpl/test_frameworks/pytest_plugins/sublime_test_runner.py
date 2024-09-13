@@ -6,6 +6,7 @@ import json
 PYTEST_MIN_VERSION = 3
 
 DISCOVERY_HEADER = 'SUBLIME_DISCOVERY: '
+STATUS_HEADER = 'SUBLIME_STATUS: '
 
 def get_file(item):
     try:
@@ -44,4 +45,16 @@ def pytest_collection_finish(session):
         collected_errors = [{'location': None, 'message': f'Error: Pytest {PYTEST_MIN_VERSION}.0 or later is required for this SublimeText plugin to work.'}]
         tests = []
 
-    print(DISCOVERY_HEADER + json.dumps({'tests': tests, 'errors': collected_errors}))
+    print('\n' + DISCOVERY_HEADER + json.dumps({'tests': tests, 'errors': collected_errors}))
+
+@pytest.hookimpl(hookwrapper=True, trylast=True)
+def pytest_report_teststatus(report, config):
+    if report.when == "call":
+        print('\n' + STATUS_HEADER + json.dumps({'test': report.nodeid, 'status': report.outcome}))
+    yield
+
+@pytest.hookimpl(hookwrapper=True, trylast=True)
+def pytest_runtest_protocol(item, nextitem):
+    print('\n' + STATUS_HEADER + json.dumps({'test': item.nodeid, 'status': 'started'}))
+    yield
+    print('\n' + STATUS_HEADER + json.dumps({'test': item.nodeid, 'status': 'finished'}))

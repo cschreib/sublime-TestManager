@@ -6,10 +6,46 @@ from typing import Dict, List, Optional
 from tempfile import TemporaryDirectory
 
 from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, TEST_SEPARATOR
+from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus
 from ..cmd import Cmd
 
 logger = logging.getLogger('TestExplorer.gtest')
+parser_logger = logging.getLogger('TestExplorerParser.gtest')
+
+class OutputParser:
+    def __init__(self, test_data: TestData, framework: str):
+        self.test_data = test_data
+        self.framework = framework
+        self.current_test: Optional[List[str]] = None
+
+    def parse_run_id(self, line: str):
+        return line[12:].strip().split(' ')[0]
+
+    def feed(self, line: str):
+        parser_logger.debug(line.strip())
+
+        if line.startswith('[ RUN      ] '):
+            self.current_test = self.test_data.get_test_list().find_test_by_run_id(self.framework, self.parse_run_id(line))
+            if self.current_test is None:
+                return
+
+            self.test_data.notify_test_started(StartedTest(self.current_test))
+        elif line.startswith('[       OK ] '):
+            if self.current_test is None:
+                return
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.PASSED))
+            self.current_test = None
+        elif line.startswith('[  FAILED  ] '):
+            if self.current_test is None:
+                return
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.FAILED))
+            self.current_test = None
+        elif line.startswith('[  SKIPPED ] '):
+            if self.current_test is None:
+                return
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.SKIPPED))
+            self.current_test = None
+
 
 class GoogleTest(TestFramework, Cmd):
     def __init__(self, test_data: TestData,
@@ -113,7 +149,7 @@ class GoogleTest(TestFramework, Cmd):
         if 'value_param' in test:
             pretty_name = '/'.join(pretty_name.split('/')[:-1]) + f'[{test["value_param"]}]'
 
-        path += [pretty_suite, pretty_name]
+        path += pretty_suite.split('/') + [pretty_name]
 
         return DiscoveredTest(
             full_name=path, framework_id=self.framework_id, run_id=f'{suite}.{name}',
@@ -129,5 +165,25 @@ class GoogleTest(TestFramework, Cmd):
                 tests.append(self.parse_discovered_test(test, suite['name'], executable))
 
         return tests
+
+    def run(self, grouped_tests: Dict[str, List[str]]) -> None:
+        cwd = self.get_working_directory()
+
+        def run_tests(executable, test_ids):
+            logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
+
+            with TemporaryDirectory() as temp_dir:
+                output_file = os.path.join(temp_dir, 'output.json')
+
+                run_args = [executable, f'--gtest_output=json:{output_file}', '--gtest_filter=' + ':'.join(test_ids)]
+
+                parser = OutputParser(self.test_data, self.framework_id)
+
+                self.cmd_streamed(run_args + self.args, parser.feed,
+                    queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
+
+        for executable, test_ids in grouped_tests.items():
+            run_tests(executable, test_ids)
+
 
 register_framework('gtest', GoogleTest.from_json)

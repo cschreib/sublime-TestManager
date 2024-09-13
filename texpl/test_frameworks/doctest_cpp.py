@@ -2,13 +2,66 @@ import os
 import logging
 import glob
 import xml.etree.ElementTree as ET
+import xml.sax
 from typing import Dict, List, Optional
+from functools import partial
 
 from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, TEST_SEPARATOR
+from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus
 from ..cmd import Cmd
 
 logger = logging.getLogger('TestExplorer.doctest-cpp')
+parser_logger = logging.getLogger('TestExplorerParser.doctest-cpp')
+
+class ResultsStreamHandler(xml.sax.handler.ContentHandler):
+    def __init__(self, test_data: TestData, framework: str, test_ids: List[str]):
+        self.test_data = test_data
+        self.framework = framework
+        self.test_ids = test_ids
+        self.current_test: Optional[List[str]] = None
+
+    def startElement(self, name, attrs):
+        attrs_str = ', '.join(['"{}": "{}"'.format(k, v) for k, v in attrs.items()])
+        parser_logger.debug('startElement(' + name + ', ' + attrs_str + ')')
+
+        if name == 'TestCase':
+            test_id = attrs['name']
+            if not test_id in self.test_ids:
+                # doctest always outputs a TestCase element for all tests, even if they are not
+                # run; they are marked as "skipped". We don't want that to be interpreted as an
+                # actual skipped test, it is just that the test has not run. Sadly there is no
+                # distinction in the XML output between the two, so we have to manually filter out
+                # results for tests that we did not intend to run...
+                return
+
+            self.current_test = self.test_data.get_test_list().find_test_by_run_id(self.framework, attrs['name'])
+            if self.current_test is None:
+                return
+
+            self.test_data.notify_test_started(StartedTest(self.current_test))
+
+            if 'skipped' in attrs and attrs['skipped'] == 'true':
+                self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.SKIPPED))
+                self.current_test = None
+
+        if name == 'OverallResultsAsserts':
+            if self.current_test is None:
+                return
+
+            if attrs['test_case_success'] == 'true':
+                status = TestStatus.PASSED
+            else:
+                status = TestStatus.FAILED
+
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, status))
+            self.current_test = None
+
+    def endElement(self, name):
+        parser_logger.debug('endElement(' + name + ')')
+
+    def characters(self, content):
+        parser_logger.debug('characters(' + content + ')')
+
 
 class DoctestCpp(TestFramework, Cmd):
     def __init__(self, test_data: TestData,
@@ -64,7 +117,7 @@ class DoctestCpp(TestFramework, Cmd):
         tests = []
 
         def run_discovery(executable):
-            discover_args = [executable, '-r=xml', '-ltc']
+            discover_args = [executable, '-r=xml', '-ltc', '--no-skip']
             output = self.cmd_string(discover_args + self.args, env=self.env, cwd=cwd)
             try:
                 return self.parse_discovery(output, executable)
@@ -125,5 +178,26 @@ class DoctestCpp(TestFramework, Cmd):
                 tests.append(self.parse_discovered_test(t, executable))
 
         return tests
+
+    def run(self, grouped_tests: Dict[str, List[str]]) -> None:
+        cwd = self.get_working_directory()
+
+        def run_tests(executable, test_ids):
+            logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
+
+            run_args = [executable, '-r=xml', '-tc=' + ','.join(test_ids)]
+
+            parser = xml.sax.make_parser()
+            parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id, test_ids))
+
+            def stream_reader(parser, line):
+                parser.feed(line)
+
+            self.cmd_streamed(run_args + self.args, partial(stream_reader, parser),
+                queue='doctest-cpp', ignore_errors=True, env=self.env, cwd=cwd)
+
+        for executable, test_ids in grouped_tests.items():
+            run_tests(executable, test_ids)
+
 
 register_framework('doctest-cpp', DoctestCpp.from_json)

@@ -41,7 +41,7 @@
     { "keys": ["S"], "command": "test_explorer_start", "args": {"start": "all"},
         "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]
     },
-    { "keys": ["s"], "command": "test_explorer_start", "args": {"start": "item"},
+    { "keys": ["s"], "command": "test_explorer_start_selected",
         "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line"}]
     },
     { "keys": ["C"], "command": "test_explorer_stop",

@@ -4,17 +4,59 @@ import logging
 from typing import Dict, List, Optional
 
 from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, TEST_SEPARATOR
+from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, status_merge
 from ..cmd import Cmd
 
-PYTEST_DISCOVERY_PLUGIN_PATH = 'pytest_plugins'
-PYTEST_DISCOVERY_PLUGIN = 'sublime_discovery'
+PYTEST_PLUGIN_PATH = 'pytest_plugins'
+PYTEST_PLUGIN = 'sublime_test_runner'
 PYTEST_DISCOVERY_HEADER = 'SUBLIME_DISCOVERY: '
+PYTEST_STATUS_HEADER = 'SUBLIME_STATUS: '
 
 # Pytest returns 5 if no test was found.
 PYTEST_SUCCESS_CODES = [0, 5]
 
+PYTEST_STATUS_MAP = {
+    'passed': TestStatus.PASSED,
+    'failed': TestStatus.FAILED,
+    'skipped': TestStatus.SKIPPED
+}
+
 logger = logging.getLogger('TestExplorer.pytest')
+parser_logger = logging.getLogger('TestExplorerParser.gtest')
+
+
+class OutputParser:
+    def __init__(self, test_data: TestData, framework: str):
+        self.test_data = test_data
+        self.framework = framework
+        self.current_test: Optional[List[str]] = None
+        self.current_status: Optional[TestStatus] = None
+
+    def feed(self, line: str):
+        parser_logger.debug(line.strip())
+        if not line.startswith(PYTEST_STATUS_HEADER):
+            return
+
+        line = line.replace(PYTEST_STATUS_HEADER, '')
+        data = json.loads(line)
+
+        if data['status'] == 'started':
+            self.current_test = self.test_data.get_test_list().find_test_by_run_id(self.framework, data['test'])
+            if self.current_test is None:
+                return
+
+            self.test_data.notify_test_started(StartedTest(self.current_test))
+        elif data['status'] == 'finished':
+            if self.current_test is None:
+                return
+            if self.current_status is None:
+                self.current_status = TestStatus.SKIPPED
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, self.current_status))
+            self.current_test = None
+            self.current_status = None
+        else:
+            self.current_status = status_merge(self.current_status, PYTEST_STATUS_MAP[data['status']])
+
 
 def get_os_python_path():
     python_path = os.environ.get('PYTHONPATH')
@@ -79,15 +121,18 @@ class PyTest(TestFramework, Cmd):
 
         return cwd
 
-    def discover(self) -> List[DiscoveredTest]:
+    def get_env(self):
         # Default discovery output of pytest does not contain file & line numbers.
         # We can import our own pytest plugin to fill the gap.
         env = self.env.copy()
-        env['PYTEST_PLUGINS'] = ','.join(get_os_pytest_plugins() + [PYTEST_DISCOVERY_PLUGIN])
+        env['PYTEST_PLUGINS'] = ','.join(get_os_pytest_plugins() + [PYTEST_PLUGIN])
         here_path = os.path.dirname(os.path.abspath(__file__))
-        plugin_path = os.path.join(here_path, PYTEST_DISCOVERY_PLUGIN_PATH)
+        plugin_path = os.path.join(here_path, PYTEST_PLUGIN_PATH)
         env['PYTHONPATH'] = os.pathsep.join(get_os_python_path() + [plugin_path])
+        return env
 
+    def discover(self) -> List[DiscoveredTest]:
+        env = self.get_env()
         cwd = self.get_working_directory()
 
         discover_args = [self.python, '-m', 'pytest', '--collect-only', '-q']
@@ -119,7 +164,7 @@ class PyTest(TestFramework, Cmd):
             path = self.custom_prefix.split(TEST_SEPARATOR) + path
 
         return DiscoveredTest(
-            full_name=path, framework_id=self.framework_id, run_id=path[-1],
+            full_name=path, framework_id=self.framework_id, run_id=test['name'],
             location=TestLocation(executable=discovery_file, file=file, line=test['line']))
 
     def parse_discovery(self, lines: List[str], working_directory: str) -> List[DiscoveredTest]:
@@ -134,5 +179,17 @@ class PyTest(TestFramework, Cmd):
                 return [self.parse_discovered_test(t, working_directory) for t in data['tests']]
 
         raise DiscoveryError('Could not find test discovery data; pytest plugin compatibility issue?')
+
+    def run(self, grouped_tests: Dict[str, List[str]]) -> None:
+        env = self.get_env()
+        cwd = self.get_working_directory()
+
+        run_args = [self.python, '-m', 'pytest'] + [test for tests in grouped_tests.values() for test in tests]
+
+        parser = OutputParser(self.test_data, self.framework_id)
+
+        self.cmd_streamed(run_args + self.args, parser.feed,
+            queue='pytest', ignore_errors=True, env=env, cwd=cwd)
+
 
 register_framework('pytest', PyTest.from_json)

@@ -14,7 +14,7 @@ from .list import (TestExplorerListCommand, TestExplorerRefreshAllCommand, TestE
 
 from .discover import (TestExplorerDiscoverCommand)
 
-from .run import (TestExplorerStartCommand, TestExplorerStopCommand)
+from .run import (TestExplorerStartSelectedCommand, TestExplorerStartCommand, TestExplorerStopCommand)
 
 from .testexplorer import (TestExplorerVersionCommand)
 

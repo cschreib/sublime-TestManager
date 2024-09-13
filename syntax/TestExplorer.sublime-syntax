@@ -11,13 +11,24 @@ contexts:
     - include: no-tests-found
     - include: help
 
+  help-key:
+    - match: (?:(?:ctrl\+|super\+|alt\+|shift\+)*\w)?(?:[\w-]-)?[\w\+\-]*
+      scope: string.other.test-explorer.help.key
+      pop: true
+
   help:
     - match: '^#'
       push:
         - meta_scope: comment.test-explorer.help
-        - match: '((?:(?:ctrl\+|super\+|alt\+|shift\+)*\w)?(?:[\w-]-)?[\w\+\-]*) ='
-          captures:
-            1: string.other.test-explorer.help.key
+        - match: ^(?!\n)\s*
+          push:
+            - match: '(?=[\w+]+ =)'
+              set: [help-key]
+            - match: (?=\[)
+              set: [status-marker]
+        - match: ^\n
+          pop: true
+
 
   test-stats:
     - match: (failed:0)
@@ -91,6 +102,12 @@ contexts:
   status-marker:
     - match: \[X\]
       scope: string.other.test-explorer.status-marker.failed
+      pop: true
+    - match: \[!\]
+      scope: string.other.test-explorer.status-marker.crashed
+      pop: true
+    - match: \[\?\]
+      scope: string.other.test-explorer.status-marker.stopped
       pop: true
     - match: \[S\]
       scope: string.other.test-explorer.status-marker.skipped

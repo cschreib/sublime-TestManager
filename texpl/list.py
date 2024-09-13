@@ -31,6 +31,8 @@ TEST_EXPLORER_VIEW_SETTINGS = {
 
 TEST_EXPLORER_DEFAULT_VISIBILITY = {
     'failed': True,
+    'crashed': True,
+    'stopped': True,
     'skipped': True,
     'passed': True,
     'not_run': True
@@ -43,6 +45,8 @@ END_OF_NAME_MARKER = '\u200B'
 STATUS_SYMBOL = {
     'not_run': '_',
     'failed':  'X',
+    'crashed': '!',
+    'stopped': '?',
     'skipped': 'S',
     'passed':  '✓',
     'running': 'R',
@@ -52,6 +56,8 @@ STATUS_SYMBOL = {
 STATUS_NAME = {
     'not_run': 'not-run',
     'failed':  'failed',
+    'crashed':  'crashed',
+    'stopped':  'stopped',
     'skipped': 'skipped',
     'passed':  'passed',
     'total':  'total'
@@ -60,7 +66,7 @@ STATUS_NAME = {
 NO_TESTS_FOUND = "No test found. Press 'd' to run discovery."
 NO_TESTS_VISIBLE = "No test to show with the current filters."
 
-TEST_EXPLORER_HELP = """
+TEST_EXPLORER_HELP = f"""
 # Running:
 #    d = run test discovery
 #    s = run app/suite/case, S = run all tests
@@ -75,7 +81,18 @@ TEST_EXPLORER_HELP = """
 #    i = toggle show/hide skipped tests
 #    p = toggle show/hide passed tests
 #    n = toggle show/hide new tests
-#    a = toggle show/hide all tests"""
+#    a = toggle show/hide all tests
+#
+# Legend:
+#    [{STATUS_SYMBOL['not_run']}] = not run
+#    [{STATUS_SYMBOL['queued']}] = queued
+#    [{STATUS_SYMBOL['stopped']}] = stopped
+#    [{STATUS_SYMBOL['running']}] = running
+#    [{STATUS_SYMBOL['skipped']}] = skipped
+#    [{STATUS_SYMBOL['failed']}] = failed
+#    [{STATUS_SYMBOL['crashed']}] = crashed
+#    [{STATUS_SYMBOL['passed']}] = passed
+"""
 
 
 class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
@@ -151,6 +168,8 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         return '--' if date is None else date.isoformat()
 
     def stats_to_string(self, stats) -> str:
+        stats['failed'] += stats['crashed']
+        stats['not_run'] += stats['stopped']
         displays = ['failed', 'skipped', 'passed', 'not_run', 'total']
         return ' | '.join(f'{STATUS_NAME[k]}:{stats[k]}' for k in displays)
 
@@ -303,7 +322,7 @@ class TestExplorerRefreshAllCommand(ApplicationCommand, TestDataHelper):
         if not data_location:
             return
 
-        logger.debug(f'refreshing list with location: {data_location}')
+        logger.debug(f'refreshing lists with location: {data_location}')
 
         views = find_views_by_settings(test_view='list', test_data_full_path=data_location)
         for view in views:
@@ -475,12 +494,14 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
         if not data:
             return
 
+        logger.debug(f'refreshing list with location: {data.location}')
+
         goto = None
         selected = self.get_selected_item()
         if selected:
             goto = f'item:{selected}'
 
-        sublime.set_timeout_async(partial(self.refresh, data, goto))
+        sublime.set_timeout(partial(self.refresh, data, goto))
 
 
 class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
@@ -497,6 +518,10 @@ class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
                 visibility = dict.fromkeys(visibility, False)
         else:
             visibility[toggle] = not self.view.settings().get('visible_tests')[toggle]
+            if toggle == 'failed':
+                visibility['crashed'] = visibility['failed']
+            if toggle == 'not_run':
+                visibility['stopped'] = visibility['not_run']
 
         self.view.settings().set('visible_tests', visibility)
         self.view.run_command('test_explorer_refresh')

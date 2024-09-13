@@ -32,3 +32,7 @@ class TestFramework(ABC):
     @abstractmethod
     def discover(self) -> List[DiscoveredTest]:
         pass
+
+    @abstractmethod
+    def run(self, grouped_tests: Dict[str, List[str]]) -> None:
+        pass
