@@ -209,7 +209,10 @@ class Cmd:
                                         env=environment) as proc:
                     if stream_reader is not None:
                         for line in proc.stdout:
-                            stream_reader(decode(line, encoding, fallback_encoding))
+                            try:
+                                stream_reader(decode(line, encoding, fallback_encoding))
+                            except Exception as e:
+                                logger.error("[%s,%s,%s] error in stream reader for line: %s\n%s", queue.name, threading.get_ident(), task_id, e, traceback.format_exc())
 
                         return (proc.poll(), None, None)
                     else:
