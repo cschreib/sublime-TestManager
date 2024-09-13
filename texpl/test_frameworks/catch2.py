@@ -99,6 +99,9 @@ class Catch2(TestFramework, Cmd):
 
         return cwd
 
+    def make_executable_path(self, executable):
+        return os.path.join(self.project_root_dir, executable) if not os.path.isabs(executable) else executable
+
     def discover(self) -> List[DiscoveredTest]:
         cwd = self.get_working_directory()
 
@@ -106,7 +109,7 @@ class Catch2(TestFramework, Cmd):
         tests = []
 
         def run_discovery(executable):
-            discover_args = [executable, '-r', 'xml', '--list-tests']
+            discover_args = [self.make_executable_path(executable), '-r', 'xml', '--list-tests']
             output = self.cmd_string(discover_args + self.args, queue='catch2', env=self.env, cwd=cwd)
             try:
                 return self.parse_discovery(output, executable)
@@ -185,7 +188,7 @@ class Catch2(TestFramework, Cmd):
         def run_tests(executable, test_ids):
             logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
 
-            run_args = [executable, '-r', 'xml', ','.join([test.replace(',','\\,') for test in test_ids])]
+            run_args = [self.make_executable_path(executable), '-r', 'xml', ','.join([test.replace(',','\\,') for test in test_ids])]
 
             parser = xml.sax.make_parser()
             parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id))

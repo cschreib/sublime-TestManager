@@ -94,6 +94,9 @@ class GoogleTest(TestFramework, Cmd):
 
         return cwd
 
+    def make_executable_path(self, executable):
+        return os.path.join(self.project_root_dir, executable) if not os.path.isabs(executable) else executable
+
     def discover(self) -> List[DiscoveredTest]:
         cwd = self.get_working_directory()
 
@@ -103,7 +106,7 @@ class GoogleTest(TestFramework, Cmd):
         with TemporaryDirectory() as temp_dir:
             def run_discovery(executable):
                 output_file = os.path.join(temp_dir, 'output.json')
-                discover_args = [executable, f'--gtest_output=json:{output_file}', '--gtest_list_tests']
+                discover_args = [self.make_executable_path(executable), f'--gtest_output=json:{output_file}', '--gtest_list_tests']
                 self.cmd_string(discover_args + self.args, env=self.env, cwd=cwd)
                 try:
                     return self.parse_discovery(output_file, executable)
@@ -175,7 +178,7 @@ class GoogleTest(TestFramework, Cmd):
             with TemporaryDirectory() as temp_dir:
                 output_file = os.path.join(temp_dir, 'output.json')
 
-                run_args = [executable, f'--gtest_output=json:{output_file}', '--gtest_filter=' + ':'.join(test_ids)]
+                run_args = [self.make_executable_path(executable), f'--gtest_output=json:{output_file}', '--gtest_filter=' + ':'.join(test_ids)]
 
                 parser = OutputParser(self.test_data, self.framework_id)
 
