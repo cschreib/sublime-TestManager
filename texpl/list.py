@@ -253,11 +253,11 @@ class TestExplorerTextCmd(Cmd):
     def get_all_node_regions(self):
         return self.view.find_by_selector('meta.test-explorer.test-list.node')
 
-    def get_all_tests(self):
+    def get_all_tests(self) -> List[str]:
         items = self.get_all_leaf_regions()
         return [self.view.substr(l) for l in items]
 
-    def get_all_folders(self):
+    def get_all_folders(self) -> List[str]:
         items = self.get_all_node_regions()
         return [self.view.substr(n) for n in items]
 
@@ -273,7 +273,7 @@ class TestExplorerTextCmd(Cmd):
 
         return items
 
-    def get_selected_tests(self):
+    def get_selected_tests(self) -> List[str]:
         return [self.view.substr(r) for r in self.get_selected_leaf_regions()]
 
     def get_selected_node_regions(self):
@@ -288,20 +288,35 @@ class TestExplorerTextCmd(Cmd):
 
         return items
 
-    def get_selected_folders(self):
+    def get_selected_folders(self) -> List[str]:
         return [self.view.substr(r) for r in self.get_selected_node_regions()]
 
-    def get_selected_item(self):
+    def get_selected_item(self) -> Optional[List[str]]:
         r = self.get_selected_item_region()
         return self.view.substr(r) if r else None
 
 
-class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
+class TestExplorerRefreshAllCommand(ApplicationCommand, TestDataHelper):
+
+    def run(self, data_location=None):
+        if not data_location:
+            data_location = self.get_test_data_location()
+        if not data_location:
+            return
+
+        logger.debug(f'refreshing list with location: {data_location}')
+
+        views = find_views_by_settings(test_view='list', test_data_full_path=data_location)
+        for view in views:
+            view.run_command('test_explorer_refresh')
+
+
+class TestExplorerListCommand(WindowCommand, TestDataHelper):
     """
     Documentation coming soon.
     """
 
-    def run(self, refresh_only=False, data_location=None):
+    def run(self, data_location=None):
         if not data_location:
             data_location = self.get_test_data_location()
         if not data_location:
@@ -310,7 +325,7 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
         logger.debug(f'opening list with location: {data_location}')
 
         views = find_views_by_settings(test_view='list', test_data_full_path=data_location)
-        if not views and not refresh_only:
+        if not views:
             view = self.window.new_file()
 
             project = self.get_project()
@@ -337,7 +352,7 @@ class TestExplorerListCommand(WindowCommand, TestExplorerListBuilder):
         for view in views:
             view.run_command('test_explorer_refresh')
 
-        if views and not refresh_only:
+        if views:
             views[0].window().focus_view(views[0])
             views[0].window().bring_to_front()
 
@@ -444,7 +459,13 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
     def is_visible(self):
         return False
 
-    def set_tests(self, goto, tests):
+    def refresh(self, data, goto):
+        try:
+            tests = self.build_list(data)
+        except Exception as e:
+            logger.error('error building test list: {}'.format(str(e)))
+            raise
+
         self.view.run_command('test_explorer_replace', {'goto': goto, 'tests': tests})
 
     def run(self, edit):
@@ -460,8 +481,7 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
         if selected:
             goto = f'item:{selected}'
 
-        thread = self.worker_run_async(partial(self.build_list, data), on_complete=partial(self.set_tests, goto))
-        thread.start()
+        sublime.set_timeout_async(partial(self.refresh, data, goto))
 
 
 class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
@@ -488,7 +508,7 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
     def is_visible(self):
         return False
 
-    def run(self, edit, toggle="all"):
+    def run(self, edit):
         data = self.get_test_data()
         if not data:
             return

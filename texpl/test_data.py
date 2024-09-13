@@ -223,7 +223,12 @@ class TestData:
     def init(self):
         self.commit(meta=TestMetaData(), tests=TestList())
 
+    def refresh_views(self):
+        logger.debug(f'refreshing views for {self.location}')
+        sublime.run_command('test_explorer_refresh_all', {'data_location': self.location})
+
     def commit(self, meta=None, tests=None):
+        # TODO: put this into the cmd for the 'data' queue
         os.makedirs(self.location, exist_ok=True)
 
         if meta is not None:
@@ -234,10 +239,14 @@ class TestData:
             self.tests = tests
             self.tests.save(os.path.join(self.location, TEST_DATA_TESTS_FILE))
 
+        if meta is not None or tests is not None:
+            self.refresh_views()
+
     def get_test_list(self, cached=True) -> TestList:
         if self.tests and cached:
             return self.tests
 
+        # TODO: put this into the cmd for the 'data' queue
         self.tests = TestList.from_file(os.path.join(self.location, TEST_DATA_TESTS_FILE))
         self.stats = None
 
@@ -247,6 +256,7 @@ class TestData:
         if self.meta and cached:
             return self.meta
 
+        # TODO: put this into the cmd for the 'data' queue
         self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
         return self.meta
@@ -265,6 +275,8 @@ class TestData:
         return self.stats
 
     def notify_discovered_tests(self, discovered_tests: List[DiscoveredTest], discovery_time: datetime):
+        logger.info('discovery complete')
+
         meta = self.get_test_metadata(cached=False)
         meta.last_discovery = discovery_time
 

@@ -57,8 +57,7 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
         sort = self.get_setting('sort_tests')
         assert isinstance(sort, bool)
 
-        thread = self.worker_run_async(partial(self.discover_tests, data, project, frameworks, sort=sort))
-        thread.start()
+        sublime.set_timeout_async(partial(self.discover_tests, data, project, frameworks, sort=sort))
 
     def display_in_panel(self, content):
         panel_name = 'TestExplorer.discovery'
@@ -99,5 +98,3 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
             discovered_tests = sorted(discovered_tests, key=comparator)
 
         data.notify_discovered_tests(discovered_tests, discovery_time=start)
-
-        self.window.run_command('test_explorer_list', {'refresh_only': True, 'data_location': data.location})

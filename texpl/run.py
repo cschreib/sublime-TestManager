@@ -35,11 +35,9 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper):
 
     def start_tests(self, data, tests):
         sublime.error_message("Not implemented")
-        self.window.run_command('test_explorer_list', {'refresh_only': True, 'data_location': data.location})
 
     def start_all_tests(self, data):
         sublime.error_message("Not implemented")
-        self.window.run_command('test_explorer_list', {'refresh_only': True, 'data_location': data.location})
 
 
 class TestExplorerStopCommand(WindowCommand, TestDataHelper):
@@ -57,4 +55,3 @@ class TestExplorerStopCommand(WindowCommand, TestDataHelper):
 
     def stop_all_tests(self, data):
         sublime.error_message("Not implemented")
-        self.window.run_command('test_explorer_list', {'refresh_only': True, 'data_location': data.location})
