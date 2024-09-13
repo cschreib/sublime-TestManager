@@ -16,6 +16,22 @@
     "worker_log_level": "WARNING",
 
     /*
+     * Parser Log level.
+     *
+     * If you are experiencing issues, please set this to DEBUG and
+     * provide the log when reporting an issue.
+     */
+    "parser_log_level": "WARNING",
+
+    /*
+     * Log file name
+     *
+     * To save logging statements to a file instead of just the Sublime console.
+     * Mostly for developing purposes. Set to 'null' to disable.
+     */
+    "log_file": null,
+
+    /*
      * Whether to sort the tests in the test list or not.
      * If not sorted, tests will be displayed in the order they were discovered.
      * The exact order then depends on the native order from the testing framework.
