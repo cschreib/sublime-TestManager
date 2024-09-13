@@ -366,6 +366,7 @@ class TestData:
 
             if tests is not None:
                 self.tests = tests
+                self.stats = None
                 self.tests.save(os.path.join(self.location, TEST_DATA_TESTS_FILE))
 
         if meta is not None or tests is not None:
