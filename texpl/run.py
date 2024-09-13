@@ -75,14 +75,14 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, SettingsHelp
         data.notify_run_started(StartedRun(test_paths))
         try:
             for framework_id, grouped_tests in test_ids.items():
-                logger.warn(f'running tests for {framework_id}...')
+                logger.debug(f'running tests for {framework_id}...')
                 framework = next((f for f in frameworks if f.get_id() == framework_id), None)
                 if framework is None:
                     logger.warning(f'{framework_id} not found in frameworks')
                     continue
 
                 framework.run(grouped_tests)
-                logger.warning(f'done.')
+                logger.debug(f'done.')
         finally:
             data.notify_run_finished(FinishedRun(test_paths))
 
