@@ -1,7 +1,17 @@
 # coding: utf-8
 import logging
 
-log_format = "[%(asctime)s - %(levelname)-8s - %(name)s] %(message)s"
+log_format = "[%(asctime)s - %(levelname)-8s - %(name)-32s] %(message)s"
+
+def setup_log_file(logger, filename):
+    for handler in logger.handlers:
+        logger.removeHandler(handler)
+
+    if filename:
+        handler = logging.FileHandler(filename)
+        handler.setFormatter(logging.Formatter(fmt=log_format, style='%'))
+        logger.addHandler(handler)
+
 logging.basicConfig(level=logging.WARNING, format=log_format)
 logging.basicConfig(filename='~/.subl.log', encoding='utf-8', level=logging.DEBUG)
 
@@ -11,6 +21,7 @@ parser_logger = logging.getLogger('TestExplorerParser')
 
 import sublime
 from .texpl import *
+
 
 def plugin_loaded():
     settings = sublime.load_settings('TestExplorer.sublime-settings')
@@ -26,12 +37,9 @@ def plugin_loaded():
     parser_logger.setLevel(parser_lvl)
 
     # set file output
-    filename = settings.get('log_file')
-    if filename:
-        handler = logging.FileHandler(filename)
-        formatter = logging.Formatter(fmt=log_format, style='%')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    setup_log_file(logger, settings.get('log_file'))
+    setup_log_file(worker_logger, settings.get('worker_log_file'))
+    setup_log_file(parser_logger, settings.get('parser_log_file'))
 
 def plugin_unloaded():
     logging.shutdown()

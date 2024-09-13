@@ -32,6 +32,22 @@
     "log_file": null,
 
     /*
+     * Worker Log file name
+     *
+     * To save logging statements to a file instead of just the Sublime console.
+     * Mostly for developing purposes. Set to 'null' to disable.
+     */
+    "worker_log_file": null,
+
+    /*
+     * Parser Log file name
+     *
+     * To save logging statements to a file instead of just the Sublime console.
+     * Mostly for developing purposes. Set to 'null' to disable.
+     */
+    "parser_log_file": null,
+
+    /*
      * Whether to sort the tests in the test list or not.
      * If not sorted, tests will be displayed in the order they were discovered.
      * The exact order then depends on the native order from the testing framework.
