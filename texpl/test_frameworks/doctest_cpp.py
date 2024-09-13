@@ -185,7 +185,7 @@ class DoctestCpp(TestFramework, Cmd):
         def run_tests(executable, test_ids):
             logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
 
-            run_args = [executable, '-r=xml', '-tc=' + ','.join(test_ids)]
+            run_args = [executable, '-r=xml', '-tc=' + ','.join([test.replace(',','\\,') for test in test_ids])]
 
             parser = xml.sax.make_parser()
             parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id, test_ids))
