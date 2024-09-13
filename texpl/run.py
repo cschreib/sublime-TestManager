@@ -3,6 +3,7 @@ import logging
 import os
 from typing import List
 from functools import partial
+import traceback
 
 import sublime
 from sublime_plugin import WindowCommand, TextCommand
@@ -96,6 +97,8 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, SettingsHelp
 
                 framework.run(grouped_tests)
                 logger.debug(f'done.')
+        except Exception as e:
+            logger.error("error when running tests: %s\n%s", e, traceback.format_exc())
         finally:
             data.notify_run_finished(FinishedRun(test_paths))
 
