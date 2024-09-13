@@ -34,11 +34,12 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             if self.current_test is None:
                 return
 
-            if attrs['success'] == 'true':
+            if 'success' in attrs and attrs['success'] == 'true':
                 status = TestStatus.PASSED
             else:
                 status = TestStatus.FAILED
-            if attrs['skips'] != '0':
+
+            if 'skips' in attrs and attrs['skips'] != '0':
                 status = TestStatus.SKIPPED
 
             self.test_data.notify_test_finished(FinishedTest(self.current_test, status))
@@ -115,6 +116,7 @@ class Catch2(TestFramework, Cmd):
 
         if '*' in self.executable_pattern:
             for executable in glob.glob(self.executable_pattern):
+                logger.debug(f'Discovering from {executable}')
                 tests += run_discovery(executable)
         else:
             tests += run_discovery(self.executable_pattern)
