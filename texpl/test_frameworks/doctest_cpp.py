@@ -48,7 +48,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             if self.current_test is None:
                 return
 
-            if attrs['test_case_success'] == 'true':
+            if 'test_case_success' in attrs and attrs['test_case_success'] == 'true':
                 status = TestStatus.PASSED
             else:
                 status = TestStatus.FAILED
