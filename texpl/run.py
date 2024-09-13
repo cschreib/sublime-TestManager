@@ -113,7 +113,7 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, TestRunHelpe
 
 class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, TestExplorerTextCmd):
 
-    def run(self, start="all"):
+    def run(self, start='all'):
         project = self.get_project()
         if not project:
             return
@@ -131,14 +131,14 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
             return
 
         if start == "one":
-            # TODO: build list of tests and let user pick one
-            sublime.error_message("Not implemented")
-            # self.start_tests(data, [test])
+            choices = data.get_test_list().list_all_test_names()
+            self.window.show_quick_panel(choices, partial(self.run_one_test, data, frameworks, choices), sublime.MONOSPACE_FONT)
         elif start == "all":
             sublime.set_timeout_async(partial(self.run_tests, data, frameworks, ['']))
 
-    def start_tests(self, data, tests):
-        sublime.error_message("Not implemented")
+    def run_one_test(self, data: TestData, frameworks: List[TestFramework], choices: List[str], test_id: int):
+        sublime.set_timeout_async(partial(self.run_tests, data, frameworks, [choices[test_id]]))
+
 
 
 class TestExplorerStopCommand(WindowCommand, TestDataHelper):

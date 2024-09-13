@@ -352,6 +352,21 @@ class TestList:
         for parent in parents:
             parent.recompute_status()
 
+    def list_all_test_names(self):
+        tests = []
+
+        def add_test(path: List[str], item: TestItem):
+            path = path + [item.name] if item.name != 'root' or len(path) > 0 else path
+            if item.children is not None:
+                for child in item.children.values():
+                    add_test(path, child)
+            else:
+                assert item.location is not None
+                tests.append(test_path_to_name(path))
+
+        add_test([], self.root)
+        return tests
+
 class TestMetaData:
     def __init__(self):
         self.last_discovery: Optional[datetime] = None
