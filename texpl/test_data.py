@@ -3,6 +3,7 @@ import os
 import logging
 import copy
 import enum
+import threading
 from datetime import datetime
 from typing import Optional, List, Dict
 
@@ -165,6 +166,7 @@ class TestItem:
         return TestItem(name=test.full_name[-1], framework_id=test.framework_id, run_id=test.run_id, location=test.location)
 
     def update_from_discovered(self, test: DiscoveredTest):
+        self.framework_id = test.framework_id
         self.location = test.location
         self.run_id = test.run_id
 
@@ -333,14 +335,18 @@ class TestMetaData:
 class TestData:
     def __init__(self, location):
         self.location = location
-        self.tests = None
-        self.stats = None
-        self.meta = None
+        self.mutex = threading.Lock()
 
         if not os.path.exists(location) or \
             not os.path.exists(os.path.join(location, TEST_DATA_MAIN_FILE)) or \
             not os.path.exists(os.path.join(location, TEST_DATA_TESTS_FILE)):
             self.init()
+        else:
+            self.tests = TestList.from_file(os.path.join(self.location, TEST_DATA_TESTS_FILE))
+            self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
+
+        self.stats = None
+
 
     def init(self):
         self.commit(meta=TestMetaData(), tests=TestList())
@@ -350,59 +356,49 @@ class TestData:
         sublime.run_command('test_explorer_refresh_all', {'data_location': self.location})
 
     def commit(self, meta=None, tests=None):
-        # TODO: put this into the cmd for the 'data' queue
-        os.makedirs(self.location, exist_ok=True)
+        with self.mutex:
+            # TODO: put this into the cmd for the 'data' queue
+            os.makedirs(self.location, exist_ok=True)
 
-        if meta is not None:
-            self.meta = meta
-            self.meta.save(os.path.join(self.location, TEST_DATA_MAIN_FILE))
+            if meta is not None:
+                self.meta = meta
+                self.meta.save(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
-        if tests is not None:
-            self.tests = tests
-            self.tests.save(os.path.join(self.location, TEST_DATA_TESTS_FILE))
+            if tests is not None:
+                self.tests = tests
+                self.tests.save(os.path.join(self.location, TEST_DATA_TESTS_FILE))
 
         if meta is not None or tests is not None:
             self.refresh_views()
 
-    def get_test_list(self, cached=True) -> TestList:
-        if self.tests and cached:
-            return self.tests
+    def get_test_list(self) -> TestList:
+        with self.mutex:
+            return copy.deepcopy(self.tests)
 
-        # TODO: put this into the cmd for the 'data' queue
-        self.tests = TestList.from_file(os.path.join(self.location, TEST_DATA_TESTS_FILE))
-        self.stats = None
+    def get_test_metadata(self) -> TestMetaData:
+        with self.mutex:
+            return copy.deepcopy(self.meta)
 
-        return self.tests
+    def get_last_discovery(self):
+        return self.get_test_metadata().last_discovery
 
-    def get_test_metadata(self, cached=True) -> TestMetaData:
-        if self.meta and cached:
-            return self.meta
-
-        # TODO: put this into the cmd for the 'data' queue
-        self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
-
-        return self.meta
-
-    def get_last_discovery(self, cached=True):
-        return self.get_test_metadata(cached=cached).last_discovery
-
-    def is_running_tests(self, cached=True):
-        return self.get_test_metadata(cached=cached).running
+    def is_running_tests(self):
+        return self.get_test_metadata().running
 
     def get_global_test_stats(self, cached=True):
-        if self.stats and cached:
-            return self.stats
+        with self.mutex:
+            if not cached or self.stats is None:
+                self.stats = get_test_stats(self.tests.root)
 
-        self.stats = get_test_stats(self.get_test_list(cached=cached).root)
-        return self.stats
+            return copy.deepcopy(self.stats)
 
     def notify_discovered_tests(self, discovered_tests: List[DiscoveredTest], discovery_time: datetime):
         logger.info('discovery complete')
 
-        meta = self.get_test_metadata(cached=False)
+        meta = self.get_test_metadata()
         meta.last_discovery = discovery_time
 
-        old_tests = self.get_test_list(cached=False)
+        old_tests = self.get_test_list()
         new_tests = TestList()
         for test in discovered_tests:
             item = old_tests.find_test(test.full_name)
@@ -418,10 +414,10 @@ class TestData:
     def notify_run_started(self, run: StartedRun):
         logger.info('test run started')
 
-        meta = self.get_test_metadata(cached=False)
+        meta = self.get_test_metadata()
         meta.running = True
 
-        tests = self.get_test_list(cached=False)
+        tests = self.get_test_list()
         for path in run.tests:
             item = tests.find_test(path)
             if not item:
@@ -434,10 +430,10 @@ class TestData:
     def notify_run_finished(self, run: FinishedRun):
         logger.info('test run finished')
 
-        meta = self.get_test_metadata(cached=False)
+        meta = self.get_test_metadata()
         meta.running = False
 
-        tests = self.get_test_list(cached=False)
+        tests = self.get_test_list()
         for path in run.tests:
             item = tests.find_test(path)
             if not item:
@@ -450,7 +446,7 @@ class TestData:
     def notify_test_started(self, test: StartedTest):
         logger.info('started {}'.format(TEST_SEPARATOR.join(test.full_name)))
 
-        tests = self.get_test_list(cached=False)
+        tests = self.get_test_list()
         item = tests.find_test(test.full_name)
         if not item:
             raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(test.full_name)))
@@ -461,7 +457,7 @@ class TestData:
     def notify_test_finished(self, test: FinishedTest):
         logger.info('finished {}'.format(TEST_SEPARATOR.join(test.full_name)))
 
-        tests = self.get_test_list(cached=False)
+        tests = self.get_test_list()
         item = tests.find_test(test.full_name)
         if not item:
             raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(test.full_name)))

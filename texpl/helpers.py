@@ -14,6 +14,7 @@ NO_PROJECT_DIALOG = ("Could not find an project based on the open files and fold
 
 NO_TEST_DATAL_LOCATION_DIALOG = ("No configured location for storing test metadata. Use default?\n\n{}?")
 
+TEST_DATA_LOOKUP = {}
 
 class TestDataHelper(SettingsHelper):
     # Find project and data
@@ -124,4 +125,7 @@ class TestDataHelper(SettingsHelper):
         if not location:
             return
 
-        return TestData(location)
+        if not location in TEST_DATA_LOOKUP:
+            TEST_DATA_LOOKUP[location] = TestData(location)
+
+        return TEST_DATA_LOOKUP[location]
