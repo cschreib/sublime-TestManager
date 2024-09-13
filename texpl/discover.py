@@ -44,15 +44,16 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
             sublime.error_message(CANNOT_DISCOVER_WHILE_RUNNING_DIALOG)
             return
 
-        frameworks = self.get_setting('frameworks')
-        if not frameworks:
+        frameworks_json = self.get_setting('frameworks')
+        if not frameworks_json:
             # TODO: change this into a "Do you want to configure a framework now?"
             # Then propose a dropdown list of all available frameworks, and init to default.
             # Also add a command to init a new framework to default.
             sublime.error_message(NO_FRAMEWORK_CONFIGURED)
             return
 
-        frameworks = [TestFramework.from_json(f) for f in frameworks]
+        root_dir = os.path.dirname(project)
+        frameworks = [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
 
         sort = self.get_setting('sort_tests')
         assert isinstance(sort, bool)
@@ -68,11 +69,9 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
     def discover_tests(self, data: TestData, project: str, frameworks: List[TestFramework], sort=False):
         start = datetime.now()
 
-        root_dir = os.path.dirname(project)
-
         # TODO: turn this into parallel jobs
         try:
-            discovered_tests = [t for f in frameworks for t in f.discover(root_dir)]
+            discovered_tests = [t for f in frameworks for t in f.discover()]
         except DiscoveryError as e:
             sublime.error_message(str(e))
             logger.error(str(e))

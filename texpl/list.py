@@ -7,12 +7,12 @@ from functools import partial
 from typing import Optional, List, Dict, Tuple
 
 import sublime
-from sublime_plugin import WindowCommand, TextCommand
+from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand
 
 from .util import find_views_by_settings, SettingsHelper
 from .cmd import Cmd
 from .helpers import TestDataHelper
-from .test_data import get_test_stats, TestItem, TestData
+from .test_data import get_test_stats, TestItem, TestData, TEST_SEPARATOR, RunStatus
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -38,7 +38,6 @@ TEST_EXPLORER_DEFAULT_VISIBILITY = {
 
 SECTION_SELECTOR_PREFIX = 'meta.test-explorer.'
 
-TEST_SEPARATOR = '/'
 END_OF_NAME_MARKER = '\u200B'
 
 STATUS_SYMBOL = {
@@ -100,10 +99,10 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
             return prefix + add + TEST_SEPARATOR
 
     def item_display_status(self, item: TestItem) -> str:
-        if item.run_status != 'not_running':
-            return item.run_status
+        if item.run_status != RunStatus.NOT_RUNNING:
+            return item.run_status.value
         else:
-            return item.last_status
+            return item.last_status.value
 
     def item_is_visible(self, item: TestItem, visibility=None) -> bool:
         if not visibility:
@@ -112,11 +111,11 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         if item.children is not None:
             return any(self.item_is_visible(i, visibility=visibility) for i in item.children.values())
 
-        if item.run_status != 'not_running':
+        if item.run_status != RunStatus.NOT_RUNNING:
             # Always show running tests
             return True
 
-        return visibility[item.last_status]
+        return visibility[item.last_status.value]
 
     def build_items(self, item: TestItem, depth=0, prefix='', visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
         lines = []

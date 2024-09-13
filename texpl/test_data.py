@@ -1,8 +1,25 @@
 import json
 import os
 import logging
+import copy
+import enum
 from datetime import datetime
 from typing import Optional, List, Dict
+
+import sublime
+
+TEST_SEPARATOR = '/'
+
+class TestStatus(enum.Enum):
+    PASSED = 'passed'
+    FAILED = 'failed'
+    SKIPPED = 'skipped'
+    NOT_RUN = 'not_run'
+
+class RunStatus(enum.Enum):
+    NOT_RUNNING = 'not_running'
+    RUNNING = 'running'
+    QUEUED = 'queued'
 
 TEST_DATA_MAIN_FILE = 'main.json'
 TEST_DATA_TESTS_FILE = 'tests.json'
@@ -24,7 +41,8 @@ def date_to_json(data: Optional[datetime]) -> Optional[str]:
 
 
 class TestLocation:
-    def __init__(self, file='', line=0):
+    def __init__(self, executable='', file='', line=0):
+        self.executable = executable
         self.file = file
         self.line = line
 
@@ -33,10 +51,12 @@ class TestLocation:
         if json_data is None:
             return None
 
-        return TestLocation(file=json_data['file'], line=json_data['line'])
+        return TestLocation(executable=json_data['executable'],
+                            file=json_data['file'],
+                            line=json_data['line'])
 
     def json(self) -> Dict:
-        return {'file': self.file, 'line': self.line}
+        return {'executable': self.executable, 'file': self.file, 'line': self.line}
 
 
 class DiscoveryError(Exception):
@@ -46,26 +66,34 @@ class DiscoveryError(Exception):
 
 
 class DiscoveredTest:
-    def __init__(self, full_name: List[str] = [], location=TestLocation()):
+    def __init__(self, full_name: List[str] = [], framework_id='', run_id='', location=TestLocation()):
         self.full_name = full_name
+        self.framework_id = framework_id
+        self.run_id = run_id
         self.location = location
 
 
 class TestItem:
-    def __init__(self, name='', location=None, last_status='not_run', run_status='not_running', last_run=None, children: Optional[Dict] = None):
+    def __init__(self, name='', framework_id='', run_id='', location=None,
+                 last_status=TestStatus.NOT_RUN, run_status=RunStatus.NOT_RUNNING,
+                 last_run=None, children: Optional[Dict] = None):
         self.name: str = name
+        self.framework_id: str = framework_id
+        self.run_id: str = run_id
         self.location: Optional[TestLocation] = location
-        self.last_status: str = last_status
-        self.run_status: str = run_status
+        self.last_status: TestStatus = last_status
+        self.run_status: RunStatus = run_status
         self.last_run: Optional[datetime] = last_run
         self.children: Optional[Dict[str, TestItem]] = children
 
     @staticmethod
     def from_json(json_data: Dict):
         item = TestItem(name=json_data['name'],
+                        framework_id=json_data['framework_id'],
+                        run_id=json_data['id'],
                         location=TestLocation.from_json(json_data.get('location', None)),
-                        last_status=json_data['last_status'],
-                        run_status=json_data['run_status'],
+                        last_status=TestStatus[json_data['last_status'].upper()],
+                        run_status=RunStatus[json_data['run_status'].upper()],
                         last_run=date_from_json(json_data.get('last_run', None)))
 
         if 'children' in json_data and json_data['children'] is not None:
@@ -79,9 +107,11 @@ class TestItem:
     def json(self) -> Dict:
         data = {
             'name': self.name,
+            'framework_id': self.framework_id,
+            'id': self.run_id,
             'location': self.location.json() if self.location is not None else None,
-            'last_status': self.last_status,
-            'run_status': self.run_status,
+            'last_status': self.last_status.value,
+            'run_status': self.run_status.value,
             'last_run': date_to_json(self.last_run)
         }
 
@@ -92,15 +122,16 @@ class TestItem:
 
     @staticmethod
     def from_discovered(test: DiscoveredTest):
-        return TestItem(name=test.full_name[-1], location=test.location)
+        return TestItem(name=test.full_name[-1], framework_id=test.framework_id, run_id=test.run_id, location=test.location)
 
     def update_from_discovered(self, test: DiscoveredTest):
         self.location = test.location
+        self.run_id = test.run_id
 
 def get_test_stats(item: TestItem):
     def add_one_to_stats(stats: Dict, item: TestItem):
-        stats[item.last_status] += 1
-        stats[item.run_status] += 1
+        stats[item.last_status.value] += 1
+        stats[item.run_status.value] += 1
         stats['total'] += 1
         if item.last_run is not None:
             if stats['last_run'] is not None:
@@ -115,7 +146,14 @@ def get_test_stats(item: TestItem):
         else:
             add_one_to_stats(stats, item)
 
-    stats = {'failed': 0, 'skipped': 0, 'passed': 0, 'not_run': 0, 'not_running': 0, 'running': 0, 'queued': 0, 'total': 0, 'last_run': None}
+    stats = {'total': 0, 'last_run': None}
+
+    for status in TestStatus:
+        stats[status.value] = 0
+
+    for status in RunStatus:
+        stats[status.value] = 0
+
     add_to_stats(stats, item)
     return stats
 
@@ -124,8 +162,11 @@ class TestList:
     def __init__(self, root: Optional[TestItem] = None):
         if not root:
             self.root = TestItem(name='root', children={})
+            self.run_id_lookup = {}
         else:
             self.root = root
+            self.run_id_lookup = {}
+            self.make_run_id_lookup(self.root, ignore_parent=True)
 
     @staticmethod
     def from_json(json_data: Dict):
@@ -161,6 +202,27 @@ class TestList:
 
         return parent
 
+    def add_item_to_run_id_lookup(self, item: TestItem, item_path: List[str]):
+        if not item.framework_id in self.run_id_lookup:
+            self.run_id_lookup[item.framework_id] = {}
+
+        self.run_id_lookup[item.framework_id][item.run_id] = item_path
+
+    def make_run_id_lookup(self, item: TestItem, parent=[], ignore_parent=False):
+        item_path = copy.deepcopy(parent)
+        if not ignore_parent:
+            item_path.append(item.name)
+
+        if item.children is None:
+            self.add_item_to_run_id_lookup(item, item_path)
+            return
+
+        for child in item.children.values():
+            self.make_run_id_lookup(child, parent=item_path)
+
+    def find_test_by_run_id(self, framework: str, run_id: str) -> Optional[List[str]]:
+        return self.run_id_lookup.get(framework, {}).get(run_id, None)
+
     def update_test(self, item_path: List[str], item: TestItem):
         parent = self.root
         for i in range(len(item_path)):
@@ -169,6 +231,7 @@ class TestList:
             if not item_path[i] in parent.children:
                 if i == len(item_path) - 1:
                     parent.children[item_path[i]] = item
+                    self.add_item_to_run_id_lookup(item, item_path)
                 else:
                     parent.children[item_path[i]] = TestItem(item_path[i], children={})
 
