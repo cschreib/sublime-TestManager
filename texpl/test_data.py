@@ -36,6 +36,13 @@ STATUS_PRIORITY = {
     TestStatus.CRASHED: 5
 }
 
+RUN_STATUS_PRIORITY = {
+    None: -1,
+    RunStatus.NOT_RUNNING: 0,
+    RunStatus.QUEUED: 1,
+    RunStatus.RUNNING: 2
+}
+
 TEST_DATA_MAIN_FILE = 'main.json'
 TEST_DATA_TESTS_FILE = 'tests.json'
 
@@ -44,6 +51,9 @@ logger = logging.getLogger('TestExplorer.test_data')
 
 def status_merge(status1, status2):
     return status1 if STATUS_PRIORITY[status1] > STATUS_PRIORITY[status2] else status2
+
+def run_status_merge(status1, status2):
+    return status1 if RUN_STATUS_PRIORITY[status1] > RUN_STATUS_PRIORITY[status2] else status2
 
 def date_from_json(data: Optional[str]) -> Optional[datetime]:
     if data is None:
@@ -188,6 +198,21 @@ class TestItem:
         self.last_status = test.status
         self.run_status = RunStatus.NOT_RUNNING
 
+    def recompute_status(self):
+        if self.children is None:
+            return
+
+        new_status = TestStatus.NOT_RUN
+        for child in self.children.values():
+            new_status = status_merge(new_status, child.last_status)
+
+        new_run_status = RunStatus.NOT_RUNNING
+        for child in self.children.values():
+            new_run_status = run_status_merge(new_run_status, child.run_status)
+
+        self.last_status = new_status
+        self.run_status = new_run_status
+
 
 def get_test_stats(item: TestItem):
     def add_one_to_stats(stats: Dict, item: TestItem):
@@ -300,6 +325,23 @@ class TestList:
 
         return parent
 
+    def update_parent_status(self, item_path: List[str]):
+        parent = self.root
+        parents = []
+        for p in item_path:
+            if parent.children is None:
+                return
+
+            if not p in parent.children:
+                return
+
+            parents.append(parent)
+            parent = parent.children[p]
+
+        parents.reverse()
+
+        for parent in parents:
+            parent.recompute_status()
 
 class TestMetaData:
     def __init__(self):
@@ -425,6 +467,7 @@ class TestData:
                 raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(path)))
 
             item.notify_run_queued()
+            tests.update_parent_status(path)
 
         self.commit(meta=meta, tests=tests)
 
@@ -441,6 +484,7 @@ class TestData:
                 raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(path)))
 
             item.notify_run_stopped()
+            tests.update_parent_status(path)
 
         self.commit(meta=meta, tests=tests)
 
@@ -453,6 +497,7 @@ class TestData:
             raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(test.full_name)))
 
         item.update_from_started(test)
+        tests.update_parent_status(test.full_name)
         self.commit(tests=tests)
 
     def notify_test_finished(self, test: FinishedTest):
@@ -464,4 +509,5 @@ class TestData:
             raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(test.full_name)))
 
         item.update_from_finished(test)
+        tests.update_parent_status(test.full_name)
         self.commit(tests=tests)
