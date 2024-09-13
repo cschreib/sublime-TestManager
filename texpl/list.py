@@ -378,14 +378,14 @@ class TestExplorerListCommand(WindowCommand, TestDataHelper):
 class TestExplorerMoveCmd(TestExplorerTextCmd):
 
     def goto(self, goto):
-        what, which, where = self.parse_goto(goto)
-        if what == "item":
-            self.move_to_item(which, where)
-        elif what == 'list-top':
+        parts = goto.split(':')
+        if parts[0] == 'item':
+            self.move_to_item(':'.join(parts[1:]))
+        elif parts[0] == 'list-top':
             self.move_to_list_top()
-        elif what == "point":
+        elif parts[0] == "point":
             try:
-                point = int(which)
+                point = int(parts[1])
                 self.move_to_point(point)
             except ValueError:
                 pass
