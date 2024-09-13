@@ -451,6 +451,7 @@ class TestData:
                 item.update_from_discovered(test)
 
             new_tests.update_test(test.full_name, item)
+            new_tests.update_parent_status(test.full_name)
 
         self.commit(meta=meta, tests=new_tests)
 
