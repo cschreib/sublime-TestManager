@@ -67,6 +67,15 @@ def date_to_json(data: Optional[datetime]) -> Optional[str]:
 
     return data.isoformat()
 
+def test_name_to_path(name: str):
+    path = name.split(TEST_SEPARATOR)
+    if len(path) == 1 and len(path[0]) == 0:
+        path = []
+    return path
+
+def test_path_to_name(path: List[str]):
+    return TEST_SEPARATOR.join(path)
+
 
 class TestLocation:
     def __init__(self, executable='', file='', line=0):
@@ -465,7 +474,7 @@ class TestData:
         for path in run.tests:
             item = tests.find_test(path)
             if not item:
-                raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(path)))
+                raise Exception('Unknown test "{}"'.format(test_path_to_name(path)))
 
             item.notify_run_queued()
             tests.update_parent_status(path)
@@ -482,7 +491,7 @@ class TestData:
         for path in run.tests:
             item = tests.find_test(path)
             if not item:
-                raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(path)))
+                raise Exception('Unknown test "{}"'.format(test_path_to_name(path)))
 
             item.notify_run_stopped()
             tests.update_parent_status(path)
@@ -490,24 +499,24 @@ class TestData:
         self.commit(meta=meta, tests=tests)
 
     def notify_test_started(self, test: StartedTest):
-        logger.info('started {}'.format(TEST_SEPARATOR.join(test.full_name)))
+        logger.info('started {}'.format(test_path_to_name(test.full_name)))
 
         tests = self.get_test_list()
         item = tests.find_test(test.full_name)
         if not item:
-            raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(test.full_name)))
+            raise Exception('Unknown test "{}"'.format(test_path_to_name(test.full_name)))
 
         item.update_from_started(test)
         tests.update_parent_status(test.full_name)
         self.commit(tests=tests)
 
     def notify_test_finished(self, test: FinishedTest):
-        logger.info('finished {}'.format(TEST_SEPARATOR.join(test.full_name)))
+        logger.info('finished {}'.format(test_path_to_name(test.full_name)))
 
         tests = self.get_test_list()
         item = tests.find_test(test.full_name)
         if not item:
-            raise Exception('Unknown test "{}"'.format(TEST_SEPARATOR.join(test.full_name)))
+            raise Exception('Unknown test "{}"'.format(test_path_to_name(test.full_name)))
 
         item.update_from_finished(test)
         tests.update_parent_status(test.full_name)

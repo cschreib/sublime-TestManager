@@ -12,7 +12,7 @@ from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand
 from .util import find_views_by_settings, SettingsHelper
 from .cmd import Cmd
 from .helpers import TestDataHelper
-from .test_data import get_test_stats, TestItem, TestData, TEST_SEPARATOR, RunStatus
+from .test_data import get_test_stats, TestItem, TestData, TEST_SEPARATOR, RunStatus, test_name_to_path
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -533,7 +533,7 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
 
         for test in tests:
             logger.debug(f'opening {test}...')
-            item = data.get_test_list().find_test(test.split(TEST_SEPARATOR))
+            item = data.get_test_list().find_test(test_name_to_path(test))
             if not item:
                 logger.warning(f'{test} not found in list')
                 continue

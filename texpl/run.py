@@ -13,7 +13,7 @@ from .list import TestExplorerTextCmd
 from .test_framework import TestFramework
 from .discover import NO_FRAMEWORK_CONFIGURED
 from .util import SettingsHelper
-from .test_data import TestData, TestItem, StartedRun, FinishedRun, TEST_SEPARATOR
+from .test_data import TestData, TestItem, StartedRun, FinishedRun, test_name_to_path
 
 logger = logging.getLogger('TestExplorer.runner')
 
@@ -22,7 +22,63 @@ TEST_STOP_CONFIRM_DIALOG = ("You are about to stop all currently-running tests. 
 CANNOT_START_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or stop the tests "
                                      "before running new tests.")
 
-class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, SettingsHelper, TestExplorerTextCmd):
+class TestRunHelper(SettingsHelper):
+    def get_frameworks(self, data: TestData, project: str):
+        frameworks_json = self.get_setting('frameworks')
+        if not frameworks_json:
+            # TODO: change this into a "Do you want to configure a framework now?"
+            # Then propose a dropdown list of all available frameworks, and init to default.
+            # Also add a command to init a new framework to default.
+            sublime.error_message(NO_FRAMEWORK_CONFIGURED)
+            return None
+
+        root_dir = os.path.dirname(project)
+        return [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
+
+    def run_tests(self, data: TestData, frameworks: List[TestFramework], tests: List[str]):
+        try:
+            test_ids = {}
+            test_paths = []
+
+            def add_test(path: List[str], item: TestItem):
+                path = path + [item.name] if item.name != 'root' or len(path) > 0 else path
+                if item.children is not None:
+                    for child in item.children.values():
+                        add_test(path, child)
+                else:
+                    assert item.location is not None
+                    test_paths.append(path)
+                    test_ids.setdefault(item.framework_id, {}).setdefault(item.location.executable, []).append(item.run_id)
+
+            for test in tests:
+                logger.debug(f'running {test}...')
+                path = test_name_to_path(test)
+                item = data.get_test_list().find_test(path)
+                if not item:
+                    logger.warning(f'{test} not found in list')
+                    continue
+
+                add_test(path[:-1], item)
+
+            logger.debug(f'collected {len(test_paths)} tests')
+
+            data.notify_run_started(StartedRun(test_paths))
+            try:
+                for framework_id, grouped_tests in test_ids.items():
+                    logger.debug(f'running {len(grouped_tests)} tests for {framework_id}...')
+                    framework = next((f for f in frameworks if f.get_id() == framework_id), None)
+                    if framework is None:
+                        logger.warning(f'{framework_id} not found in frameworks')
+                        continue
+
+                    framework.run(grouped_tests)
+                    logger.debug(f'done.')
+            finally:
+                data.notify_run_finished(FinishedRun(test_paths))
+        except Exception as e:
+            logger.error("error when running tests: %s\n%s", e, traceback.format_exc())
+
+class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, TestRunHelper, TestExplorerTextCmd):
 
     def is_visible(self):
         return False
@@ -40,72 +96,28 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, SettingsHelp
             sublime.error_message(CANNOT_START_WHILE_RUNNING_DIALOG)
             return
 
-        frameworks_json = self.get_setting('frameworks')
-        if not frameworks_json:
-            # TODO: change this into a "Do you want to configure a framework now?"
-            # Then propose a dropdown list of all available frameworks, and init to default.
-            # Also add a command to init a new framework to default.
-            sublime.error_message(NO_FRAMEWORK_CONFIGURED)
+        frameworks = self.get_frameworks(data, project)
+        if frameworks is None:
             return
-
-        root_dir = os.path.dirname(project)
-        frameworks: List[TestFramework] = [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
 
         tests = self.get_selected_tests()
         if len(tests) > 0:
-            sublime.set_timeout_async(partial(self.run_tests, data, project, frameworks, tests))
+            sublime.set_timeout_async(partial(self.run_tests, data, frameworks, tests))
             return
 
         tests = self.get_selected_folders()
         if len(tests) > 0:
-            sublime.set_timeout_async(partial(self.run_tests, data, project, frameworks, tests))
+            sublime.set_timeout_async(partial(self.run_tests, data, frameworks, tests))
             return
 
-    def run_tests(self, data: TestData, project: str, frameworks: List[TestFramework], tests: List[str]):
-        test_ids = {}
-        test_paths = []
 
-        def add_test(path: List[str], item: TestItem):
-            if item.children is not None:
-                for child in item.children.values():
-                    add_test(path + [item.name], child)
-            else:
-                assert item.location is not None
-                test_paths.append(path + [item.name])
-                test_ids.setdefault(item.framework_id, {}).setdefault(item.location.executable, []).append(item.run_id)
-
-        for test in tests:
-            logger.debug(f'running {test}...')
-            path = test.split(TEST_SEPARATOR)
-            item = data.get_test_list().find_test(path)
-            if not item:
-                logger.warning(f'{test} not found in list')
-                continue
-
-            add_test(path[:-1], item)
-
-
-        # TODO: put this in background thread
-        data.notify_run_started(StartedRun(test_paths))
-        try:
-            for framework_id, grouped_tests in test_ids.items():
-                logger.debug(f'running tests for {framework_id}...')
-                framework = next((f for f in frameworks if f.get_id() == framework_id), None)
-                if framework is None:
-                    logger.warning(f'{framework_id} not found in frameworks')
-                    continue
-
-                framework.run(grouped_tests)
-                logger.debug(f'done.')
-        except Exception as e:
-            logger.error("error when running tests: %s\n%s", e, traceback.format_exc())
-        finally:
-            data.notify_run_finished(FinishedRun(test_paths))
-
-
-class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestExplorerTextCmd):
+class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, TestExplorerTextCmd):
 
     def run(self, start="all"):
+        project = self.get_project()
+        if not project:
+            return
+
         data = self.get_test_data()
         if not data:
             return
@@ -114,17 +126,18 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestExplorerTextCm
             sublime.error_message(CANNOT_START_WHILE_RUNNING_DIALOG)
             return
 
+        frameworks = self.get_frameworks(data, project)
+        if frameworks is None:
+            return
+
         if start == "one":
             # TODO: build list of tests and let user pick one
             sublime.error_message("Not implemented")
             # self.start_tests(data, [test])
         elif start == "all":
-            self.start_all_tests(data)
+            sublime.set_timeout_async(partial(self.run_tests, data, frameworks, ['']))
 
     def start_tests(self, data, tests):
-        sublime.error_message("Not implemented")
-
-    def start_all_tests(self, data):
         sublime.error_message("Not implemented")
 
 
