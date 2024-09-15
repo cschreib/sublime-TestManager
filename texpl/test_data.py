@@ -412,6 +412,7 @@ class TestData:
             self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
         self.stats = None
+        self.last_test_finished = None
 
 
     def init(self):
@@ -522,6 +523,13 @@ class TestData:
             raise Exception('Unknown test "{}"'.format(test_path_to_name(test.full_name)))
 
         item.update_from_started(test)
+
+        if self.last_test_finished is not None:
+            # Update parents of last tests now, rather than in notify_test_finished().
+            # This prevents status flicker.
+            tests.update_parent_status(self.last_test_finished)
+            self.last_test_finished = None
+
         tests.update_parent_status(test.full_name)
         self.commit(tests=tests)
 
@@ -534,5 +542,5 @@ class TestData:
             raise Exception('Unknown test "{}"'.format(test_path_to_name(test.full_name)))
 
         item.update_from_finished(test)
-        tests.update_parent_status(test.full_name)
+        self.last_test_finished = test.full_name
         self.commit(tests=tests)
