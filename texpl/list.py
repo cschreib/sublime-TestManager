@@ -277,7 +277,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
     def build_tests(self, test_list: TestList, visibility=None):
         lines = self.build_items(test_list, test_list.root, visibility=visibility, hide_parent=True)
         if len(lines) == 0:
-            return []
+            return [], 0
 
         max_length = max([len(line) for _, line in lines])
         return [(item.full_name, self.build_info(item, line, max_length)) for item, line in lines], max_length
