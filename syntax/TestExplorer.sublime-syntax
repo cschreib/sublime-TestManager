@@ -67,6 +67,10 @@ contexts:
         1: comment.other.test-explorer.tests.last-run
         2: string.other.test-explorer.time-delta
         3: comment.other.test-explorer.datetime
+    - match: (last-run:)(--)
+      captures:
+        1: comment.other.test-explorer.tests.last-run
+        2: string.other.test-explorer.time-delta
     - match: \s*\|\s*
       scope: comment.test-explorer.stats.separator
     - match: \n
@@ -80,6 +84,12 @@ contexts:
         2: comment.other.test-explorer.datetime
 
     - match: '^Last run:\s+([^\(]+)(\([^\)]+\))\n'
+      scope: comment.test-explorer.header.last-run
+      captures:
+        1: string.other.test-explorer.time-delta
+        2: comment.other.test-explorer.datetime
+
+    - match: '^Last run:\s+(--)\n'
       scope: comment.test-explorer.header.last-run
       captures:
         1: string.other.test-explorer.time-delta
