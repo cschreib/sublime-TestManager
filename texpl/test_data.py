@@ -2,11 +2,13 @@ import json
 import os
 import logging
 import time
+import queue
 import copy
 import enum
 import threading
 from datetime import datetime
 from typing import Optional, List, Dict
+from functools import partial
 
 import sublime
 
@@ -414,10 +416,12 @@ class TestData:
     def __init__(self, location):
         self.location = location
         self.mutex = threading.Lock()
-        self.stats = None
-        self.last_test_finished = None
-        self.last_refresh = None
-        self.accumulated_hints = set()
+        self.stats: Optional[dict] = None
+        self.last_test_finished: Optional[List[str]] = None
+        self.stop_tests_event = threading.Event()
+        self.refresh_thread: Optional[threading.Thread] = None
+        self.stop_refresh_thread = threading.Event()
+        self.refresh_queue = queue.Queue()
 
         if not os.path.exists(location) or \
             not os.path.exists(os.path.join(location, TEST_DATA_MAIN_FILE)) or \
@@ -431,15 +435,32 @@ class TestData:
         self.commit(meta=TestMetaData(), tests=TestList())
 
     def refresh_views(self, refresh_hints=[]):
-        for hint in refresh_hints:
-            self.accumulated_hints.add(hint)
+        if self.is_running_tests() and len(refresh_hints) > 0:
+            self.refresh_queue.put(refresh_hints)
+        else:
+            self.refresh_views_now(refresh_hints=refresh_hints)
 
-        now = time.time()
-        if self.last_refresh is None or now - self.last_refresh > MIN_REFRESH_TIME:
-            logger.debug(f'refreshing views for {self.location}')
-            sublime.run_command('test_explorer_refresh_all', {'data_location': self.location, 'hints': list(self.accumulated_hints)})
-            self.last_refresh = now
-            self.accumulated_hints = set()
+    def refresh_views_now(self, refresh_hints=[]):
+        logger.debug(f'refreshing views for {self.location}')
+        sublime.run_command('test_explorer_refresh_all', {'data_location': self.location, 'hints': refresh_hints})
+
+    def refresh_views_continuously(self, stop_token):
+        accumulated_hints = set()
+        last_refresh: Optional[float] = None
+
+        while not stop_token.is_set():
+            try:
+                refresh_hints = self.refresh_queue.get(timeout=0.05)
+                for hint in refresh_hints:
+                    accumulated_hints.add(hint)
+            except:
+                pass
+
+            now = time.time()
+            if last_refresh is None or now - last_refresh > MIN_REFRESH_TIME:
+                sublime.set_timeout(partial(self.refresh_views_now, list(accumulated_hints)))
+                last_refresh = now
+                accumulated_hints = set()
 
     def commit(self, meta=None, tests=None, refresh_hints=[]):
         with self.mutex:
@@ -504,6 +525,7 @@ class TestData:
 
         with self.mutex:
             self.meta.running = True
+            self.stop_tests_event = threading.Event()
 
             for path in run.tests:
                 item = self.tests.find_test(path)
@@ -512,6 +534,11 @@ class TestData:
 
                 item.notify_run_queued()
                 self.tests.update_parent_status(path)
+
+            self.stop_refresh_thread = threading.Event()
+            self.refresh_queue = queue.Queue()
+            self.refresh_thread = threading.Thread(target=partial(self.refresh_views_continuously, self.stop_refresh_thread))
+            self.refresh_thread.start()
 
         self.commit(meta=self.meta, tests=self.tests)
 
@@ -528,6 +555,10 @@ class TestData:
 
                 item.notify_run_stopped()
                 self.tests.update_parent_status(path)
+
+            assert self.refresh_thread is not None
+            self.stop_refresh_thread.set()
+            self.refresh_thread.join()
 
         self.commit(meta=self.meta, tests=self.tests)
 

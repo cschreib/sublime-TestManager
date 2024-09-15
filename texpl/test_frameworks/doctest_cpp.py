@@ -197,7 +197,7 @@ class DoctestCpp(TestFramework, Cmd):
             def stream_reader(parser, line):
                 parser.feed(line)
 
-            self.cmd_streamed(run_args + self.args, partial(stream_reader, parser),
+            self.cmd_streamed(run_args + self.args, partial(stream_reader, parser), self.test_data.stop_tests_event,
                 queue='doctest-cpp', ignore_errors=True, env=self.env, cwd=cwd)
 
         for executable, test_ids in grouped_tests.items():

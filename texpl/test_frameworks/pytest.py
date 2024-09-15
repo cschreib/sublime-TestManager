@@ -189,7 +189,7 @@ class PyTest(TestFramework, Cmd):
 
         parser = OutputParser(self.test_data, self.framework_id)
 
-        self.cmd_streamed(run_args + self.args, parser.feed,
+        self.cmd_streamed(run_args + self.args, parser.feed, self.test_data.stop_tests_event,
             queue='pytest', ignore_errors=True, env=env, cwd=cwd)
 
 

@@ -183,7 +183,7 @@ class GoogleTest(TestFramework, Cmd):
 
                 parser = OutputParser(self.test_data, self.framework_id)
 
-                self.cmd_streamed(run_args + self.args, parser.feed,
+                self.cmd_streamed(run_args + self.args, parser.feed, self.test_data.stop_tests_event,
                     queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
 
         for executable, test_ids in grouped_tests.items():

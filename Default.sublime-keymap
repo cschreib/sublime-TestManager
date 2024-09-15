@@ -44,7 +44,7 @@
     { "keys": ["s"], "command": "test_explorer_start_selected",
         "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line"}]
     },
-    { "keys": ["C"], "command": "test_explorer_stop",
+    { "keys": ["backspace"], "command": "test_explorer_stop",
         "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]
     },
 ]

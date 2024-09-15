@@ -149,7 +149,7 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
 
 class TestExplorerStopCommand(WindowCommand, TestDataHelper):
 
-    def run(self, edit):
+    def run(self):
         data = self.get_test_data()
         if not data:
             return
@@ -158,7 +158,4 @@ class TestExplorerStopCommand(WindowCommand, TestDataHelper):
             return
 
         if sublime.ok_cancel_dialog(TEST_STOP_CONFIRM_DIALOG, "Stop tests"):
-            self.stop_all_tests(data)
-
-    def stop_all_tests(self, data):
-        sublime.error_message("Not implemented")
+            data.stop_tests_event.set()

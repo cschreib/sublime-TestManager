@@ -162,7 +162,7 @@ class Cmd:
         worker_logger.info("[%s,%s,%s] got output: %s", queue.name, threading.get_ident(), task_id, str(outputs)[:32])
         return outputs
 
-    def cmd(self, command: List[str], queue='default', stdin=None, cwd=None, env={}, stream_reader=None, ignore_errors=False, encoding='utf-8', fallback_encoding=[]):
+    def cmd(self, command: List[str], queue='default', stdin=None, cwd=None, env={}, stream_reader=None, stop_token=None, ignore_errors=False, encoding='utf-8', fallback_encoding=[]):
         queue = get_queue(queue)
 
         environment = os.environ.copy()
@@ -183,11 +183,32 @@ class Cmd:
                                         cwd=cwd,
                                         env=environment) as proc:
                     if stream_reader is not None:
-                        for line in proc.stdout:
+                        def read_stdout(proc, stream_reader, encoding, fallback_encoding, queue, task_id):
                             try:
-                                stream_reader(decode(line, encoding, fallback_encoding))
-                            except Exception as e:
-                                logger.error("[%s,%s,%s] error in stream reader for line: %s\n%s", queue.name, threading.get_ident(), task_id, e, traceback.format_exc())
+                                for line in proc.stdout:
+                                    try:
+                                        stream_reader(decode(line, encoding, fallback_encoding))
+                                    except Exception as e:
+                                        logger.error("[%s,%s,%s] error in stream reader: %s\n%s", queue.name, threading.get_ident(), task_id, e, traceback.format_exc())
+                            except:
+                                pass
+
+                        # Process in a thread
+                        process_thread = threading.Thread(target=partial(read_stdout, proc, stream_reader, encoding, fallback_encoding, queue, task_id))
+                        process_thread.start()
+
+                        # Wait for process to finish
+                        assert stop_token is not None
+                        while not stop_token.wait(0.1) and proc.poll() is None:
+                            pass
+
+                        if stop_token.is_set():
+                            try:
+                                proc.terminate()
+                            except:
+                                pass
+
+                        process_thread.join()
 
                         return (proc.poll(), None, None)
                     else:
@@ -227,8 +248,11 @@ class Cmd:
         stdout = self.cmd_string(command, ignore_errors=ignore_errors, success_codes=success_codes, *args, **kwargs)
         return stdout.split('\n')
 
-    def cmd_streamed(self, command: List[str], stream_reader, ignore_errors=False, success_codes=[0], *args, **kwargs):
-        error_code, _, _ = self.cmd(command, *args, stream_reader=stream_reader, ignore_errors=ignore_errors, **kwargs)
+    def cmd_streamed(self, command: List[str], stream_reader, stop_token=None, ignore_errors=False, success_codes=[0], *args, **kwargs):
+        if stop_token is None:
+            stop_token = threading.Event()
+
+        error_code, _, _ = self.cmd(command, *args, stream_reader=stream_reader, stop_token=stop_token, ignore_errors=ignore_errors, **kwargs)
         if not ignore_errors and error_code not in success_codes:
             command_str = ' '.join(command)
             raise JobError(f'Error when executing command "{command_str}" (exit code {error_code}).')

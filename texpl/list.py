@@ -70,7 +70,7 @@ TEST_EXPLORER_HELP = f"""
 # Running:
 #    d = run test discovery
 #    s = run app/suite/case, S = run all tests
-#    C = stop tests
+#    backspace = stop tests
 #
 # Other:
 #    enter = open test file
