@@ -527,11 +527,12 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
         root_folder = os.path.dirname(project)
         transient = self.get_setting('explorer_open_files_transient', True) is True
         tests = self.get_selected_tests()
+        test_list = data.get_test_list()
         window = self.view.window()
 
         for test in tests:
             logger.debug(f'opening {test}...')
-            item = data.get_test_list().find_test(test_name_to_path(test))
+            item = test_list.find_test(test_name_to_path(test))
             if not item:
                 logger.warning(f'{test} not found in list')
                 continue
