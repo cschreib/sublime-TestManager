@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import time
 import copy
 import enum
 import threading
@@ -10,6 +11,7 @@ from typing import Optional, List, Dict
 import sublime
 
 TEST_SEPARATOR = '/'
+MIN_REFRESH_TIME = 0.1 # seconds
 
 class TestStatus(enum.Enum):
     PASSED = 'passed'
@@ -75,6 +77,9 @@ def test_name_to_path(name: str):
 
 def test_path_to_name(path: List[str]):
     return TEST_SEPARATOR.join(path)
+
+def parents_in_path(path: List[str]):
+    return [test_path_to_name(path[:i]) for i in range(1, len(path))]
 
 
 class TestLocation:
@@ -409,6 +414,10 @@ class TestData:
     def __init__(self, location):
         self.location = location
         self.mutex = threading.Lock()
+        self.stats = None
+        self.last_test_finished = None
+        self.last_refresh = None
+        self.accumulated_hints = set()
 
         if not os.path.exists(location) or \
             not os.path.exists(os.path.join(location, TEST_DATA_MAIN_FILE)) or \
@@ -418,18 +427,21 @@ class TestData:
             self.tests = TestList.from_file(os.path.join(self.location, TEST_DATA_TESTS_FILE))
             self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
-        self.stats = None
-        self.last_test_finished = None
-
-
     def init(self):
         self.commit(meta=TestMetaData(), tests=TestList())
 
-    def refresh_views(self):
-        logger.debug(f'refreshing views for {self.location}')
-        sublime.run_command('test_explorer_refresh_all', {'data_location': self.location})
+    def refresh_views(self, refresh_hints=[]):
+        for hint in refresh_hints:
+            self.accumulated_hints.add(hint)
 
-    def commit(self, meta=None, tests=None):
+        now = time.time()
+        if self.last_refresh is None or now - self.last_refresh > MIN_REFRESH_TIME:
+            logger.debug(f'refreshing views for {self.location}')
+            sublime.run_command('test_explorer_refresh_all', {'data_location': self.location, 'hints': list(self.accumulated_hints)})
+            self.last_refresh = now
+            self.accumulated_hints = set()
+
+    def commit(self, meta=None, tests=None, refresh_hints=[]):
         with self.mutex:
             # TODO: put this into the cmd for the 'data' queue
             os.makedirs(self.location, exist_ok=True)
@@ -444,7 +456,7 @@ class TestData:
                 self.tests.save(os.path.join(self.location, TEST_DATA_TESTS_FILE))
 
         if meta is not None or tests is not None:
-            self.refresh_views()
+            self.refresh_views(refresh_hints=refresh_hints)
 
     def get_test_list(self) -> TestList:
         with self.mutex:
@@ -470,85 +482,89 @@ class TestData:
     def notify_discovered_tests(self, discovered_tests: List[DiscoveredTest], discovery_time: datetime):
         logger.info('discovery complete')
 
-        meta = self.get_test_metadata()
-        meta.last_discovery = discovery_time
+        with self.mutex:
+            self.meta.last_discovery = discovery_time
 
-        old_tests = self.get_test_list()
-        new_tests = TestList()
-        for test in discovered_tests:
-            item = old_tests.find_test(test.full_name)
-            if not item:
-                item = TestItem.from_discovered(test)
-            else:
-                item.update_from_discovered(test)
+            old_tests = self.tests
+            new_tests = TestList()
+            for test in discovered_tests:
+                item = old_tests.find_test(test.full_name)
+                if not item:
+                    item = TestItem.from_discovered(test)
+                else:
+                    item.update_from_discovered(test)
 
-            new_tests.update_test(test.full_name, item)
-            new_tests.update_parent_status(test.full_name)
+                new_tests.update_test(test.full_name, item)
+                new_tests.update_parent_status(test.full_name)
 
-        self.commit(meta=meta, tests=new_tests)
+        self.commit(meta=self.meta, tests=new_tests)
 
     def notify_run_started(self, run: StartedRun):
         logger.info('test run started')
 
-        meta = self.get_test_metadata()
-        meta.running = True
+        with self.mutex:
+            self.meta.running = True
 
-        tests = self.get_test_list()
-        for path in run.tests:
-            item = tests.find_test(path)
-            if not item:
-                raise Exception('Unknown test "{}"'.format(test_path_to_name(path)))
+            for path in run.tests:
+                item = self.tests.find_test(path)
+                if not item:
+                    raise Exception('Unknown test "{}"'.format(test_path_to_name(path)))
 
-            item.notify_run_queued()
-            tests.update_parent_status(path)
+                item.notify_run_queued()
+                self.tests.update_parent_status(path)
 
-        self.commit(meta=meta, tests=tests)
+        self.commit(meta=self.meta, tests=self.tests)
 
     def notify_run_finished(self, run: FinishedRun):
         logger.info('test run finished')
 
-        meta = self.get_test_metadata()
-        meta.running = False
+        with self.mutex:
+            self.meta.running = False
 
-        tests = self.get_test_list()
-        for path in run.tests:
-            item = tests.find_test(path)
-            if not item:
-                raise Exception('Unknown test "{}"'.format(test_path_to_name(path)))
+            for path in run.tests:
+                item = self.tests.find_test(path)
+                if not item:
+                    raise Exception('Unknown test "{}"'.format(test_path_to_name(path)))
 
-            item.notify_run_stopped()
-            tests.update_parent_status(path)
+                item.notify_run_stopped()
+                self.tests.update_parent_status(path)
 
-        self.commit(meta=meta, tests=tests)
+        self.commit(meta=self.meta, tests=self.tests)
 
     def notify_test_started(self, test: StartedTest):
         logger.info('started {}'.format(test_path_to_name(test.full_name)))
 
-        tests = self.get_test_list()
-        item = tests.find_test(test.full_name)
-        if not item:
-            raise Exception('Unknown test "{}"'.format(test_path_to_name(test.full_name)))
+        with self.mutex:
+            item = self.tests.find_test(test.full_name)
+            if not item:
+                raise Exception('Unknown test "{}"'.format(test_path_to_name(test.full_name)))
 
-        item.update_from_started(test)
+            item.update_from_started(test)
+            refresh_hints = [item.full_name]
 
-        if self.last_test_finished is not None:
-            # Update parents of last tests now, rather than in notify_test_finished().
-            # This prevents status flicker.
-            tests.update_parent_status(self.last_test_finished)
-            self.last_test_finished = None
+            if self.last_test_finished is not None:
+                # Update parents of last tests now, rather than in notify_test_finished().
+                # This prevents status flicker.
+                self.tests.update_parent_status(self.last_test_finished)
+                refresh_hints += parents_in_path(self.last_test_finished)
+                self.last_test_finished = None
 
-        tests.update_parent_status(test.full_name)
+            self.tests.update_parent_status(test.full_name)
+            refresh_hints += parents_in_path(test.full_name)
 
-        self.commit(tests=tests)
+        self.commit(tests=self.tests, refresh_hints=refresh_hints)
 
     def notify_test_finished(self, test: FinishedTest):
         logger.info('finished {}'.format(test_path_to_name(test.full_name)))
 
-        tests = self.get_test_list()
-        item = tests.find_test(test.full_name)
-        if not item:
-            raise Exception('Unknown test "{}"'.format(test_path_to_name(test.full_name)))
+        with self.mutex:
+            item = self.tests.find_test(test.full_name)
+            if not item:
+                raise Exception('Unknown test "{}"'.format(test_path_to_name(test.full_name)))
 
-        item.update_from_finished(test)
-        self.last_test_finished = test.full_name
-        self.commit(tests=tests)
+            item.update_from_finished(test)
+            refresh_hints = [item.full_name]
+
+            self.last_test_finished = test.full_name
+
+        self.commit(tests=self.tests, refresh_hints=refresh_hints)

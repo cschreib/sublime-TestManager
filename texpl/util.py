@@ -34,17 +34,15 @@ def noop(*args, **kwargs):
 
 # View helpers
 
-def find_views_by_settings(**kwargs):
+def find_views_for_data(data_path):
     views = []
     for window in sublime.windows():
         for view in window.views():
             s = view.settings()
-            matches = [s.get(k) == v for k, v in list(kwargs.items())]
-            if all(matches):
+            if 'test_view' in s and s['test_data_full_path'] == data_path:
                 views.append(view)
 
     return views
-
 
 # progress helper
 

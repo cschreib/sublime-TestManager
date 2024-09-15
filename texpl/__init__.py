@@ -8,7 +8,7 @@ __version__ = '1.0.0'
 from .util import TestExplorerPanelWriteCommand, TestExplorerPanelAppendCommand
 
 from .list import (TestExplorerListCommand, TestExplorerRefreshAllCommand, TestExplorerRefreshCommand,
-                   TestExplorerReplaceCommand, TestExplorerToggleShowCommand,
+                   TestExplorerReplaceCommand, TestExplorerPartialReplaceCommand, TestExplorerToggleShowCommand,
                    TestExplorerStartSelectedCommand,
                    TestExplorerOpenFile, TestExplorerEventListener)
 
