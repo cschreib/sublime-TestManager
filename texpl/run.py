@@ -1,4 +1,5 @@
 # coding: utf-8
+import time
 import logging
 import os
 from typing import List
@@ -61,6 +62,7 @@ class TestRunHelper(SettingsHelper):
                 add_test(path[:-1], item)
 
             logger.debug(f'collected {len(test_paths)} tests')
+            start = time.time()
 
             data.notify_run_started(StartedRun(test_paths))
             try:
@@ -75,6 +77,10 @@ class TestRunHelper(SettingsHelper):
                     logger.debug(f'done.')
             finally:
                 data.notify_run_finished(FinishedRun(test_paths))
+
+            end = time.time()
+            logger.debug(f'test run duration: {end - start}')
+
         except Exception as e:
             logger.error("error when running tests: %s\n%s", e, traceback.format_exc())
 
