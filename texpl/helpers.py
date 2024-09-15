@@ -72,16 +72,13 @@ class TestDataHelper(SettingsHelper):
         # This is already a full path.
         location = view.settings().get('test_data_full_path')
         if location:
-            logger.debug(f'location from view (test_data_full_path): {location}')
             return location
 
         # Setting from the project file. This is a relative path.
         location = self.get_setting('data_location')
         if location:
-            logger.debug(f'location from view (data_location): {location}')
             project = self.get_project()
             if project:
-                logger.debug(f'with project: {project}')
                 base = os.path.dirname(project)
                 location = os.path.normpath(os.path.join(base, location))
                 return location
@@ -93,7 +90,6 @@ class TestDataHelper(SettingsHelper):
         # Setting from the project file. This is a relative path.
         location = self.get_setting('data_location')
         if location:
-            logger.debug(f'location from window (data_location): {location}')
             base = os.path.dirname(window.project_file_name())
             location = os.path.normpath(os.path.join(base, location))
             return location
