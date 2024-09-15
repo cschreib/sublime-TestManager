@@ -12,7 +12,7 @@ from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, Event
 from .util import find_views_by_settings, SettingsHelper, readable_date_delta
 from .cmd import Cmd
 from .helpers import TestDataHelper
-from .test_data import get_test_stats, TestItem, TestData, TEST_SEPARATOR, RunStatus, test_name_to_path
+from .test_data import get_test_stats, TestItem, TestData, RunStatus, test_name_to_path
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -105,16 +105,6 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
         return status
 
-    def add_prefix(self, prefix: str, add: str) -> str:
-        if len(add) == 0 and len(prefix) == 0:
-            return ''
-        elif len(add) == 0:
-            return prefix + TEST_SEPARATOR
-        elif len(prefix) == 0:
-            return add + TEST_SEPARATOR
-        else:
-            return prefix + add + TEST_SEPARATOR
-
     def item_display_status(self, item: TestItem) -> str:
         if item.run_status != RunStatus.NOT_RUNNING:
             return item.run_status.value
@@ -134,35 +124,33 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
         return visibility[item.last_status.value]
 
-    def build_items(self, item: TestItem, depth=0, prefix='', visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
+    def build_items(self, item: TestItem, depth=0, visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
         lines = []
 
         if item.children:
             fold = len(item.children) == 1
 
             if not hide_parent and not fold and self.item_is_visible(item, visibility=visibility):
-                lines += [(item, self.build_item(item, depth=depth, prefix=prefix))]
+                lines.append(self.build_item(item, depth=depth))
 
             if not hide_parent:
                 new_depth = depth + 1 if not fold else depth
-                new_prefix = self.add_prefix(prefix, item.name)
             else:
                 new_depth = depth
-                new_prefix = ''
 
             for child in item.children.values():
-                lines += self.build_items(child, depth=new_depth, prefix=new_prefix, visibility=visibility)
+                lines += self.build_items(child, depth=new_depth, visibility=visibility)
         else:
             if not hide_parent and self.item_is_visible(item, visibility=visibility):
-                lines += [(item, self.build_item(item, depth=depth, prefix=prefix))]
+                lines.append(self.build_item(item, depth=depth))
 
         return lines
 
-    def build_item(self, item: TestItem, depth=0, prefix='') -> str:
+    def build_item(self, item: TestItem, depth=0) -> Tuple[TestItem, str]:
         indent = '  ' * depth
         symbol = f'[{STATUS_SYMBOL[self.item_display_status(item)]}]'
         fold = '- ' if item.children is not None else '  '
-        return f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{prefix}{item.name}{END_OF_NAME_MARKER}'
+        return (item, f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{item.full_name}{END_OF_NAME_MARKER}')
 
     def date_to_string(self, date: Optional[datetime]) -> str:
         if date is None:
@@ -190,7 +178,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
     def build_tests(self, root: TestItem, visibility=None):
         assert root.children is not None
 
-        lines = self.build_items(root, depth=0, prefix='', visibility=visibility, hide_parent=True)
+        lines = self.build_items(root, depth=0, visibility=visibility, hide_parent=True)
         if len(lines) == 0:
             return []
 

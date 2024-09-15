@@ -134,10 +134,11 @@ class FinishedRun:
 
 
 class TestItem:
-    def __init__(self, name='', framework_id='', run_id='', location=None,
+    def __init__(self, name='', full_name='', framework_id='', run_id='', location=None,
                  last_status=TestStatus.NOT_RUN, run_status=RunStatus.NOT_RUNNING,
                  last_run=None, children: Optional[Dict] = None):
         self.name: str = name
+        self.full_name: str = full_name
         self.framework_id: str = framework_id
         self.run_id: str = run_id
         self.location: Optional[TestLocation] = location
@@ -149,8 +150,9 @@ class TestItem:
     @staticmethod
     def from_json(json_data: Dict):
         item = TestItem(name=json_data['name'],
+                        full_name=json_data['full_name'],
                         framework_id=json_data['framework_id'],
-                        run_id=json_data['id'],
+                        run_id=json_data['run_id'],
                         location=TestLocation.from_json(json_data.get('location', None)),
                         last_status=TestStatus[json_data['last_status'].upper()],
                         run_status=RunStatus[json_data['run_status'].upper()],
@@ -167,8 +169,9 @@ class TestItem:
     def json(self) -> Dict:
         data = {
             'name': self.name,
+            'full_name': self.full_name,
             'framework_id': self.framework_id,
-            'id': self.run_id,
+            'run_id': self.run_id,
             'location': self.location.json() if self.location is not None else None,
             'last_status': self.last_status.value,
             'run_status': self.run_status.value,
@@ -182,12 +185,16 @@ class TestItem:
 
     @staticmethod
     def from_discovered(test: DiscoveredTest):
-        return TestItem(name=test.full_name[-1], framework_id=test.framework_id, run_id=test.run_id, location=test.location)
+        return TestItem(name=test.full_name[-1],
+                        full_name=test_path_to_name(test.full_name),
+                        framework_id=test.framework_id,
+                        run_id=test.run_id,
+                        location=test.location)
 
     def update_from_discovered(self, test: DiscoveredTest):
         self.framework_id = test.framework_id
-        self.location = test.location
         self.run_id = test.run_id
+        self.location = test.location
 
     def notify_run_queued(self):
         self.run_status = RunStatus.QUEUED
@@ -256,7 +263,7 @@ def get_test_stats(item: TestItem):
 class TestList:
     def __init__(self, root: Optional[TestItem] = None):
         if not root:
-            self.root = TestItem(name='root', children={})
+            self.root = TestItem(name='root', full_name='root', children={})
             self.run_id_lookup = {}
         else:
             self.root = root
@@ -328,7 +335,9 @@ class TestList:
                     parent.children[item_path[i]] = item
                     self.add_item_to_run_id_lookup(item, item_path)
                 else:
-                    parent.children[item_path[i]] = TestItem(item_path[i], children={})
+                    parent.children[item_path[i]] = TestItem(name=item_path[i],
+                                                             full_name=test_path_to_name(item_path[:i+1]),
+                                                             children={})
 
             parent = parent.children[item_path[i]]
 
@@ -355,16 +364,14 @@ class TestList:
     def list_all_test_names(self):
         tests = []
 
-        def add_test(path: List[str], item: TestItem):
-            path = path + [item.name] if item.name != 'root' or len(path) > 0 else path
+        def add_test(item: TestItem):
             if item.children is not None:
                 for child in item.children.values():
-                    add_test(path, child)
+                    add_test(child)
             else:
-                assert item.location is not None
-                tests.append(test_path_to_name(path))
+                tests.append(item.full_name)
 
-        add_test([], self.root)
+        add_test(self.root)
         return tests
 
 class TestMetaData:
@@ -531,6 +538,7 @@ class TestData:
             self.last_test_finished = None
 
         tests.update_parent_status(test.full_name)
+
         self.commit(tests=tests)
 
     def notify_test_finished(self, test: FinishedTest):
