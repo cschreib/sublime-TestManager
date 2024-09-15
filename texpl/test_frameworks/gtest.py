@@ -15,6 +15,7 @@ parser_logger = logging.getLogger('TestExplorerParser.gtest')
 class OutputParser:
     def __init__(self, test_data: TestData, framework: str):
         self.test_data = test_data
+        self.test_list = test_data.get_test_list()
         self.framework = framework
         self.current_test: Optional[List[str]] = None
 
@@ -25,7 +26,7 @@ class OutputParser:
         parser_logger.debug(line.strip())
 
         if line.startswith('[ RUN      ] '):
-            self.current_test = self.test_data.get_test_list().find_test_by_run_id(self.framework, self.parse_run_id(line))
+            self.current_test = self.test_list.find_test_by_run_id(self.framework, self.parse_run_id(line))
             if self.current_test is None:
                 return
 

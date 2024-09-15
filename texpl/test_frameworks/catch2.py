@@ -16,6 +16,7 @@ parser_logger = logging.getLogger('TestExplorerParser.catch2')
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
     def __init__(self, test_data: TestData, framework: str):
         self.test_data = test_data
+        self.test_list = test_data.get_test_list()
         self.framework = framework
         self.current_test: Optional[List[str]] = None
 
@@ -24,7 +25,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
         parser_logger.debug('startElement(' + name + ', ' + attrs_str + ')')
 
         if name == 'TestCase':
-            self.current_test = self.test_data.get_test_list().find_test_by_run_id(self.framework, attrs['name'])
+            self.current_test = self.test_list.find_test_by_run_id(self.framework, attrs['name'])
             if self.current_test is None:
                 return
 
