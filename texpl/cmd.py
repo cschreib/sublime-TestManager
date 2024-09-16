@@ -204,7 +204,7 @@ class Cmd:
 
                         if stop_token.is_set():
                             try:
-                                proc.terminate()
+                                proc.kill()
                             except:
                                 pass
 
