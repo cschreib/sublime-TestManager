@@ -130,7 +130,14 @@ class DoctestCpp(TestFramework, Cmd):
                 return []
 
         if '*' in self.executable_pattern:
-            for executable in glob.glob(self.executable_pattern):
+            old_cwd = os.getcwd()
+            os.chdir(self.project_root_dir)
+            executables = [e for e in glob.glob(self.executable_pattern)]
+            os.chdir(old_cwd)
+            if len(executables) == 0:
+                logger.warning(f'no executable found with pattern "{self.executable_pattern}" (cwd: {self.project_root_dir})')
+
+            for executable in executables:
                 tests += run_discovery(executable)
         else:
             tests += run_discovery(self.executable_pattern)
