@@ -83,6 +83,12 @@ contexts:
         1: string.other.test-explorer.time-delta
         2: comment.other.test-explorer.datetime
 
+    - match: '^Last discovery:\s+(--)\n'
+      scope: comment.test-explorer.header.last-run
+      captures:
+        1: string.other.test-explorer.time-delta
+        2: comment.other.test-explorer.datetime
+
     - match: '^Last run:\s+([^\(]+)(\([^\)]+\))\n'
       scope: comment.test-explorer.header.last-run
       captures:
