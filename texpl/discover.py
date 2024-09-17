@@ -19,11 +19,33 @@ logger = logging.getLogger('TestExplorer.discovery')
 
 CANNOT_DISCOVER_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or "
                                         "stop the tests before running test discovery.")
+CANNOT_RESET_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or "
+                                     "stop the tests before reseting the test data.")
 
 
 NO_FRAMEWORK_CONFIGURED = ("No test framework is currently configured.")
 
 MAX_ERROR_LENGTH = 256
+
+class TestExplorerResetCommand(WindowCommand, TestDataHelper):
+
+    def is_visible(self):
+        return True
+
+    def run(self):
+        data = self.get_test_data()
+        if not data:
+            return
+
+        project = self.get_project()
+        if not project:
+            return
+
+        if data.is_running_tests():
+            sublime.error_message(CANNOT_RESET_WHILE_RUNNING_DIALOG)
+            return
+
+        data.init()
 
 
 class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper, Cmd):

@@ -12,7 +12,7 @@ from .list import (TestExplorerListCommand, TestExplorerRefreshAllCommand, TestE
                    TestExplorerStartSelectedCommand,
                    TestExplorerOpenFile, TestExplorerEventListener)
 
-from .discover import (TestExplorerDiscoverCommand)
+from .discover import (TestExplorerDiscoverCommand, TestExplorerResetCommand)
 
 from .run import (TestExplorerStartSelectedCommand, TestExplorerStartCommand, TestExplorerStopCommand)
 
