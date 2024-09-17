@@ -23,7 +23,7 @@ class OutputParser:
         return line[12:].strip().split(' ')[0]
 
     def feed(self, line: str):
-        parser_logger.debug(line.strip())
+        parser_logger.debug(line.rstrip())
 
         if line.startswith('[ RUN      ] '):
             self.current_test = self.test_list.find_test_by_run_id(self.framework, self.parse_run_id(line))

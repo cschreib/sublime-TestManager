@@ -22,7 +22,7 @@ PYTEST_STATUS_MAP = {
 }
 
 logger = logging.getLogger('TestExplorer.pytest')
-parser_logger = logging.getLogger('TestExplorerParser.gtest')
+parser_logger = logging.getLogger('TestExplorerParser.pytest')
 
 
 class OutputParser:
@@ -34,7 +34,7 @@ class OutputParser:
         self.current_status: Optional[TestStatus] = None
 
     def feed(self, line: str):
-        parser_logger.debug(line.strip())
+        parser_logger.debug(line.rstrip())
         if not line.startswith(PYTEST_STATUS_HEADER):
             return
 
@@ -151,7 +151,6 @@ class PyTest(TestFramework, Cmd):
         path = test['name'].split('::')
         discovery_file = path[0]
         discovery_file = os.path.normpath(os.path.relpath(os.path.join(working_directory, discovery_file), start=self.project_root_dir))
-
         path = path[1:]
 
         if self.path_prefix_style == 'full':
@@ -170,6 +169,7 @@ class PyTest(TestFramework, Cmd):
 
     def parse_discovery(self, lines: List[str], working_directory: str) -> List[DiscoveredTest]:
         for line in lines:
+            parser_logger.debug(line.rstrip())
             if PYTEST_DISCOVERY_HEADER in line:
                 line = line.replace(PYTEST_DISCOVERY_HEADER, '')
 
