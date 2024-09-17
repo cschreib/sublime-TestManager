@@ -1,6 +1,7 @@
 # Inspired from https://github.com/kondratyev-nv/vscode-python-test-adapter
 import pytest
 import json
+import os
 
 # report.longreprtext requires >= 3.0
 PYTEST_MIN_VERSION = 3
@@ -24,6 +25,12 @@ def get_line_number(item):
         # Fall back to start of the file, for lack of better information.
         return 1
 
+def make_name(item):
+    if isinstance(item, pytest.File):
+        return os.path.relpath(item.path, start=os.getcwd())
+    else:
+        return (make_name(item.parent) + '::' + item.name) if item.parent.name != "" else item.name
+
 collected_errors = []
 
 def pytest_collectreport(report):
@@ -37,7 +44,7 @@ def pytest_collection_finish(session):
     global collected_errors
 
     try:
-        tests = [{'name': item.nodeid, 'file': get_file(item), 'line': get_line_number(item)} for item in session.items]
+        tests = [{'name': make_name(item), 'file': get_file(item), 'line': get_line_number(item)} for item in session.items]
     except:
         tests = []
 
@@ -48,13 +55,13 @@ def pytest_collection_finish(session):
     print('\n' + DISCOVERY_HEADER + json.dumps({'tests': tests, 'errors': collected_errors}))
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
-def pytest_report_teststatus(report, config):
+def pytest_report_teststatus(report):
     if report.when == "call":
-        print('\n' + STATUS_HEADER + json.dumps({'test': report.nodeid, 'status': report.outcome}))
+        print('\n' + STATUS_HEADER + json.dumps({'status': report.outcome}))
     yield
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
-def pytest_runtest_protocol(item, nextitem):
-    print('\n' + STATUS_HEADER + json.dumps({'test': item.nodeid, 'status': 'started'}))
+def pytest_runtest_protocol(item):
+    print('\n' + STATUS_HEADER + json.dumps({'test': make_name(item), 'status': 'started'}))
     yield
-    print('\n' + STATUS_HEADER + json.dumps({'test': item.nodeid, 'status': 'finished'}))
+    print('\n' + STATUS_HEADER + json.dumps({'test': make_name(item), 'status': 'finished'}))
