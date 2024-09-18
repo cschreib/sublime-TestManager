@@ -137,7 +137,7 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
             return
 
         if start == "one":
-            choices = data.get_test_list().list_all_test_names()
+            choices = [t.full_name for t in data.get_test_list().tests()]
             self.window.show_quick_panel(choices, partial(self.run_one_test, data, frameworks, choices), sublime.MONOSPACE_FONT)
         elif start == "all":
             sublime.set_timeout_async(partial(self.run_tests, data, frameworks, ['']))

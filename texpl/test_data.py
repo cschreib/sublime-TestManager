@@ -368,18 +368,28 @@ class TestList:
         for parent in parents:
             parent.recompute_status()
 
-    def list_all_test_names(self):
-        tests = []
+    def update_parent_statuses(self):
+        def recompute(item: TestItem):
+            if item.children is None:
+                return
 
-        def add_test(item: TestItem):
+            for child in item.children.values():
+                recompute(child)
+
+            item.recompute_status()
+
+        recompute(self.root)
+
+    def tests(self):
+        def get_tests(item: TestItem):
             if item.children is not None:
                 for child in item.children.values():
-                    add_test(child)
+                    yield from get_tests(child)
             else:
-                tests.append(item.full_name)
+                yield item
 
-        add_test(self.root)
-        return tests
+        yield from get_tests(self.root)
+
 
 class TestMetaData:
     def __init__(self):
@@ -431,6 +441,17 @@ class TestData:
             self.tests = TestList.from_file(os.path.join(self.location, TEST_DATA_TESTS_FILE))
             self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
+            if self.meta.running:
+                # Plugin was reloaded or SublimeText killed while running tests, so we didn't
+                # register a "run finished" event. Generate it now to clean everything up.
+                self.meta.running = False
+
+                for item in self.tests.tests():
+                    item.notify_run_stopped()
+
+                self.tests.update_parent_statuses()
+                self.commit(meta=self.meta, tests=self.tests, no_refresh=True)
+
     def init(self):
         self.commit(meta=TestMetaData(), tests=TestList())
 
@@ -462,7 +483,7 @@ class TestData:
                 last_refresh = now
                 accumulated_hints = set()
 
-    def commit(self, meta=None, tests=None, refresh_hints=[]):
+    def commit(self, meta=None, tests=None, refresh_hints=[], no_refresh=False):
         with self.mutex:
             # TODO: put this into the cmd for the 'data' queue
             os.makedirs(self.location, exist_ok=True)
@@ -476,7 +497,7 @@ class TestData:
                 self.stats = None
                 self.tests.save(os.path.join(self.location, TEST_DATA_TESTS_FILE))
 
-        if meta is not None or tests is not None:
+        if not no_refresh and (meta is not None or tests is not None):
             self.refresh_views(refresh_hints=refresh_hints)
 
     def get_test_list(self) -> TestList:
