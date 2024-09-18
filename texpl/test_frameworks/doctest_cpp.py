@@ -14,10 +14,11 @@ logger = logging.getLogger('TestExplorer.doctest-cpp')
 parser_logger = logging.getLogger('TestExplorerParser.doctest-cpp')
 
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
-    def __init__(self, test_data: TestData, framework: str, test_ids: List[str]):
+    def __init__(self, test_data: TestData, framework: str, executable: str, test_ids: List[str]):
         self.test_data = test_data
         self.test_list = test_data.get_test_list()
         self.framework = framework
+        self.executable = executable
         self.test_ids = test_ids
         self.current_test: Optional[List[str]] = None
 
@@ -35,7 +36,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
                 # results for tests that we did not intend to run...
                 return
 
-            self.current_test = self.test_list.find_test_by_run_id(self.framework, attrs['name'])
+            self.current_test = self.test_list.find_test_by_run_id(self.framework, self.executable, test_id)
             if self.current_test is None:
                 return
 
@@ -196,10 +197,11 @@ class DoctestCpp(TestFramework, Cmd):
         def run_tests(executable, test_ids):
             logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
 
-            run_args = [self.make_executable_path(executable), '-r=xml', '-tc=' + ','.join([test.replace(',','\\,') for test in test_ids])]
+            test_filters = ','.join(test.replace(',','\\,') for test in test_ids)
+            run_args = [self.make_executable_path(executable), '-r=xml', '-tc=' + test_filters]
 
             parser = xml.sax.make_parser()
-            parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id, test_ids))
+            parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id, executable, test_ids))
 
             def stream_reader(parser, line):
                 parser.feed(line)

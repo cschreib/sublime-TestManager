@@ -312,10 +312,14 @@ class TestList:
         return parent
 
     def add_item_to_run_id_lookup(self, item: TestItem, item_path: List[str]):
-        if not item.framework_id in self.run_id_lookup:
+        if item.framework_id not in self.run_id_lookup:
             self.run_id_lookup[item.framework_id] = {}
 
-        self.run_id_lookup[item.framework_id][item.run_id] = item_path
+        assert item.location is not None
+        if item.location.executable not in self.run_id_lookup[item.framework_id]:
+            self.run_id_lookup[item.framework_id][item.location.executable] = {}
+
+        self.run_id_lookup[item.framework_id][item.location.executable][item.run_id] = item_path
 
     def make_run_id_lookup(self, item: TestItem, parent=[], ignore_parent=False):
         item_path = copy.deepcopy(parent)
@@ -329,8 +333,8 @@ class TestList:
         for child in item.children.values():
             self.make_run_id_lookup(child, parent=item_path)
 
-    def find_test_by_run_id(self, framework: str, run_id: str) -> Optional[List[str]]:
-        return self.run_id_lookup.get(framework, {}).get(run_id, None)
+    def find_test_by_run_id(self, framework: str, executable: str, run_id: str) -> Optional[List[str]]:
+        return self.run_id_lookup.get(framework, {}).get(executable, {}).get(run_id, None)
 
     def update_test(self, item_path: List[str], item: TestItem):
         parent = self.root

@@ -14,10 +14,11 @@ logger = logging.getLogger('TestExplorer.catch2')
 parser_logger = logging.getLogger('TestExplorerParser.catch2')
 
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
-    def __init__(self, test_data: TestData, framework: str):
+    def __init__(self, test_data: TestData, framework: str, executable: str):
         self.test_data = test_data
         self.test_list = test_data.get_test_list()
         self.framework = framework
+        self.executable = executable
         self.current_test: Optional[List[str]] = None
 
     def startElement(self, name, attrs):
@@ -25,7 +26,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
         parser_logger.debug('startElement(' + name + ', ' + attrs_str + ')')
 
         if name == 'TestCase':
-            self.current_test = self.test_list.find_test_by_run_id(self.framework, attrs['name'])
+            self.current_test = self.test_list.find_test_by_run_id(self.framework, self.executable, attrs['name'])
             if self.current_test is None:
                 return
 
@@ -195,10 +196,11 @@ class Catch2(TestFramework, Cmd):
         def run_tests(executable, test_ids):
             logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
 
-            run_args = [self.make_executable_path(executable), '-r', 'xml', ','.join([test.replace(',','\\,') for test in test_ids])]
+            test_filters = ','.join(test.replace(',','\\,') for test in test_ids)
+            run_args = [self.make_executable_path(executable), '-r', 'xml', test_filters]
 
             parser = xml.sax.make_parser()
-            parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id))
+            parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id, executable))
 
             def stream_reader(parser, line):
                 parser.feed(line)

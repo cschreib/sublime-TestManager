@@ -13,10 +13,11 @@ logger = logging.getLogger('TestExplorer.gtest')
 parser_logger = logging.getLogger('TestExplorerParser.gtest')
 
 class OutputParser:
-    def __init__(self, test_data: TestData, framework: str):
+    def __init__(self, test_data: TestData, framework: str, executable: str):
         self.test_data = test_data
         self.test_list = test_data.get_test_list()
         self.framework = framework
+        self.executable = executable
         self.current_test: Optional[List[str]] = None
 
     def parse_run_id(self, line: str):
@@ -26,7 +27,7 @@ class OutputParser:
         parser_logger.debug(line.rstrip())
 
         if line.startswith('[ RUN      ] '):
-            self.current_test = self.test_list.find_test_by_run_id(self.framework, self.parse_run_id(line))
+            self.current_test = self.test_list.find_test_by_run_id(self.framework, self.executable, self.parse_run_id(line))
             if self.current_test is None:
                 return
 
@@ -187,9 +188,10 @@ class GoogleTest(TestFramework, Cmd):
             with TemporaryDirectory() as temp_dir:
                 output_file = os.path.join(temp_dir, 'output.json')
 
-                run_args = [self.make_executable_path(executable), f'--gtest_output=json:{output_file}', '--gtest_filter=' + ':'.join(test_ids)]
+                test_filters = ':'.join(test_ids)
+                run_args = [self.make_executable_path(executable), f'--gtest_output=json:{output_file}', '--gtest_filter=' + test_filters]
 
-                parser = OutputParser(self.test_data, self.framework_id)
+                parser = OutputParser(self.test_data, self.framework_id, executable)
 
                 self.cmd_streamed(run_args + self.args, parser.feed, self.test_data.stop_tests_event,
                     queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
