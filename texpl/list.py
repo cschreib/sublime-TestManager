@@ -400,6 +400,7 @@ class TestExplorerListCommand(WindowCommand, TestDataHelper):
             view.settings().set('test_view', 'list')
             view.settings().set('visible_tests', TEST_EXPLORER_DEFAULT_VISIBILITY)
             view.settings().set('test_data_full_path', data_location)
+            view.settings().set('tab_size', 2)
 
             separators = view.settings().get('word_separators', '')
             view.settings().set('word_separators', separators + END_OF_NAME_MARKER)
