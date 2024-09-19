@@ -172,7 +172,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
                 if item is None:
                     continue
 
-                content = self.build_item(item, self.item_depth(data.tests, path))
+                content = self.build_item(item, self.item_depth(path))
                 add_line(line, self.build_info(item, content, max_length))
 
         return lines
@@ -210,38 +210,23 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
         return visibility[item.last_status.value]
 
-    def item_depth(self, test_list: TestList, path: List[str]) -> int:
-        parent = test_list.root
-        assert parent.children is not None
-
-        depth = 0
-        for p in path[:-1]:
-            parent = parent.children[p]
-            assert parent.children is not None
-
-            fold = len(parent.children) == 1
-            if not fold:
-                depth += 1
-
-        return depth
+    def item_depth(self, path: List[str]) -> int:
+        return len(path) - 1
 
     def build_items(self, test_list: TestList, item: TestItem, visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
         lines = []
 
         if item.children:
-            fold = len(item.children) == 1
-            if not hide_parent and not fold and self.item_is_visible(item, visibility=visibility):
+            if not hide_parent and self.item_is_visible(item, visibility=visibility):
                 path = test_name_to_path(item.full_name)
-                item_depth = self.item_depth(test_list, path)
-                lines.append((item, self.build_item(item, depth=item_depth)))
+                lines.append((item, self.build_item(item, depth=self.item_depth(path))))
 
             for child in item.children.values():
                 lines += self.build_items(test_list, child, visibility=visibility)
         else:
             if not hide_parent and self.item_is_visible(item, visibility=visibility):
                 path = test_name_to_path(item.full_name)
-                item_depth = self.item_depth(test_list, path)
-                lines.append((item, self.build_item(item, depth=item_depth)))
+                lines.append((item, self.build_item(item, depth=self.item_depth(path))))
 
         return lines
 
