@@ -646,23 +646,3 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
                 window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)
             else:
                 window.open_file(location, sublime.ENCODED_POSITION)
-
-
-class TestExplorerStartSelectedCommand(TextCommand, TestExplorerTextCmd):
-
-    def is_visible(self):
-        return False
-
-    def run(self, edit, start="all"):
-        if start == "item":
-            tests = self.get_selected_tests()
-            if tests:
-                self.start_tests(tests)
-        elif start == "all":
-            self.start_all_tests()
-
-    def start_tests(self, tests):
-        self.view.run_command('test_explorer_start_command', {'start': 'list', 'tests': tests})
-
-    def start_all_tests(self):
-        self.view.run_command('test_explorer_start_command', {'start': 'all'})
