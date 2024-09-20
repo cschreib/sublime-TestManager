@@ -260,16 +260,18 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
     def build_info(self, item: TestItem, line: str, max_length: int) -> str:
         padding = ' ' * (max_length - len(line))
         if item.children is not None:
-            return f'{line}{padding}    {self.stats_to_string(get_test_stats(item))}'
+            return f'{line}{padding} ({self.stats_to_string(get_test_stats(item))})'
         else:
-            return f'{line}{padding}    last-run:{self.date_to_string(item.last_run)}'
+            return f'{line}{padding} (last-run:{self.date_to_string(item.last_run)})'
 
     def build_tests(self, test_list: TestList, visibility=None):
         lines = self.build_items(test_list, test_list.root, visibility=visibility, hide_parent=True)
         if len(lines) == 0:
             return [], 0
 
-        max_length = max([len(line) for _, line in lines])
+        line_lengths = [len(line) for _, line in lines]
+        line_lengths.sort()
+        max_length = line_lengths[int(len(line_lengths)*0.95)]
         return [(item.full_name, self.build_info(item, line, max_length)) for item, line in lines], max_length
 
 

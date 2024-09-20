@@ -62,18 +62,26 @@ contexts:
       captures:
         1: comment.other.test-explorer.tests.total
         2: constant.numeric.other.test-explorer.tests.total
-    - match: (last-run:)([^\(\n]+)(\([^\)]+\))?
+    - match: (last-run:)([\w\s]+)
       captures:
         1: comment.other.test-explorer.tests.last-run
         2: string.other.test-explorer.time-delta
-        3: comment.other.test-explorer.datetime
     - match: (last-run:)(--)
       captures:
         1: comment.other.test-explorer.tests.last-run
         2: string.other.test-explorer.time-delta
     - match: \s*\|\s*
       scope: comment.test-explorer.stats.separator
-    - match: \n
+
+  parenthesized-test-stats:
+    - match: \s*\(
+      scope: comment.test-explorer.test-stats
+      push:
+        - include: test-stats
+        - match: \)
+          scope: comment.test-explorer.test-stats
+          pop: true
+    - match: (?=\n)
       pop: true
 
   header:
@@ -101,9 +109,12 @@ contexts:
         1: string.other.test-explorer.time-delta
         2: comment.other.test-explorer.datetime
 
-    - match: '^Tests status:\s+'
+    - match: '^Tests status:'
       scope: comment.test-explorer.header.stats
-      push: test-stats
+      push:
+        - include: test-stats
+        - match: (?=\n)
+          pop: true
 
     - match: '^Showing:\s+'
       scope: comment.test-explorer.header.showing
@@ -166,9 +177,9 @@ contexts:
           push:
             - match: \-
               scope: punctuation.section.list.test-explorer.fold-marker
-              set: [test-stats, node, status-marker]
+              set: [parenthesized-test-stats, node, status-marker]
             - match: (?=\[)
-              set: [test-stats, leaf, status-marker]
+              set: [parenthesized-test-stats, leaf, status-marker]
         - match: ^\n
           pop: true
 
