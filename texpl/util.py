@@ -39,7 +39,17 @@ def find_views_for_data(data_path):
     for window in sublime.windows():
         for view in window.views():
             s = view.settings()
-            if 'test_view' in s and s['test_data_full_path'] == data_path:
+            if 'test_view' in s and s['test_view'] == 'list' and s['test_data_full_path'] == data_path:
+                views.append(view)
+
+    return views
+
+def find_views_for_test(data_path, test):
+    views = []
+    for window in sublime.windows():
+        for view in window.views():
+            s = view.settings()
+            if 'test_view' in s and s['test_view'] == 'output' and s['test_data_full_path'] == data_path and s['test_output'] == test:
                 views.append(view)
 
     return views

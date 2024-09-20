@@ -72,6 +72,7 @@ TEST_EXPLORER_HELP = f"""
 #
 # Other:
 #    enter = open test file
+#    o = open test run output
 #
 # View:
 #    r = refresh view

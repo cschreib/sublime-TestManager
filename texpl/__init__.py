@@ -11,6 +11,9 @@ from .list import (TestExplorerListCommand, TestExplorerRefreshAllCommand, TestE
                    TestExplorerReplaceCommand, TestExplorerPartialReplaceCommand, TestExplorerToggleShowCommand,
                    TestExplorerOpenFile, TestExplorerEventListener)
 
+from .output import (TestExplorerOpenSelectedOutput, TestExplorerOpenSingleOutput, TestExplorerOpenRunOutput,
+                     TestExplorerOutputRefresh, TestExplorerOutputRefreshAllCommand, TestExplorerOutputEventListener)
+
 from .discover import (TestExplorerDiscoverCommand, TestExplorerResetCommand)
 
 from .run import (TestExplorerStartSelectedCommand, TestExplorerStartCommand, TestExplorerStopCommand)

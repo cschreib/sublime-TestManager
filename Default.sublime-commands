@@ -4,5 +4,6 @@
     { "caption": "TestExplorer: Discover Tests", "command": "test_explorer_discover"},
     { "caption": "TestExplorer: Run All Tests", "command": "test_explorer_start", "args": {"start": "all"}},
     { "caption": "TestExplorer: Run Test", "command": "test_explorer_start", "args": {"start": "one"}},
+    { "caption": "TestExplorer: Open Run Output", "command": "test_explorer_open_single_output"},
     { "caption": "TestExplorer: Stop All Tests", "command": "test_explorer_stop"},
 ]

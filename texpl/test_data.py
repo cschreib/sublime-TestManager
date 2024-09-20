@@ -120,6 +120,12 @@ class FinishedTest:
         self.message = message
 
 
+class TestOutput:
+    def __init__(self, full_name: List[str] = [], output=''):
+        self.full_name = full_name
+        self.output = output
+
+
 class StartedRun:
     def __init__(self, tests: List[List[str]]):
         self.tests = tests
@@ -159,8 +165,8 @@ class TestItem:
 
     def save(self, con: sqlite3.Connection):
         con.execute('INSERT OR REPLACE INTO tests VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-            (self.name,
-            self.full_name,
+            (self.full_name,
+            self.name,
             self.framework_id,
             self.run_id,
             self.location.executable if self.location is not None else None,
@@ -263,6 +269,7 @@ class TestList:
         self.location = location
         self.root = TestItem(name='root', full_name='root', children={})
         self.run_id_lookup = {}
+        self.test_output_buffer = {}
 
     @staticmethod
     def from_location(location):
@@ -293,8 +300,8 @@ class TestList:
                 tables = [r[0] for r in con.execute('SELECT name FROM sqlite_master').fetchall()]
                 if not 'tests' in tables:
                     con.execute("""CREATE TABLE tests(
-                        name TEXT,
                         full_name TEXT PRIMARY KEY,
+                        name TEXT,
                         framework_id TEXT,
                         run_id TEXT,
                         location_executable TEXT,
@@ -304,6 +311,11 @@ class TestList:
                         run_status TEXT,
                         last_run TIMESTAMP,
                         leaf BOOL
+                        )""")
+
+                    con.execute("""CREATE TABLE test_ouputs(
+                        full_name TEXT PRIMARY KEY,
+                        output TEXT
                         )""")
 
                 if len(refresh_hints) == 0:
@@ -413,6 +425,41 @@ class TestList:
 
         yield from get_tests(self.root)
 
+    def clear_test_output(self, item_path: List[str]):
+        test_name = test_path_to_name(item_path)
+        with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
+            with con:
+                con.execute('INSERT OR REPLACE INTO test_ouputs VALUES (?,"")', (test_name,))
+
+    def add_test_output(self, item_path: List[str], output: str):
+        test_name = test_path_to_name(item_path)
+        if not test_name in self.test_output_buffer:
+            self.test_output_buffer[test_name] = output
+        else:
+            self.test_output_buffer[test_name] += output
+
+    def flush_test_output(self, item_path: List[str]):
+        test_name = test_path_to_name(item_path)
+        output = self.test_output_buffer[test_name]
+        del self.test_output_buffer[test_name]
+
+        with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
+            with con:
+                con.execute('UPDATE test_ouputs SET output=? WHERE full_name=?',
+                    (output, test_name))
+
+    def get_test_output(self, item_path: List[str]) -> str:
+        test_name = test_path_to_name(item_path)
+        if test_name in self.test_output_buffer:
+            return self.test_output_buffer[test_name]
+
+        with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
+            with con:
+                output = con.execute('SELECT output FROM test_ouputs WHERE full_name=?',
+                    (test_path_to_name(item_path),)).fetchone()
+
+                return '' if output is None else output[0]
+
 
 class TestMetaData:
     def __init__(self, location: str):
@@ -470,7 +517,9 @@ class TestData:
         self.stop_tests_event = threading.Event()
         self.refresh_thread: Optional[threading.Thread] = None
         self.stop_refresh_thread = threading.Event()
-        self.refresh_queue = queue.Queue()
+        self.refresh_list_queue = queue.Queue()
+        self.refresh_output_queue = queue.Queue()
+        self.test_output_buffer = ''
 
         if not self.is_initialised():
             self.init()
@@ -505,7 +554,7 @@ class TestData:
 
     def refresh_views(self, refresh_hints=[]):
         if self.is_running_tests() and len(refresh_hints) > 0:
-            self.refresh_queue.put(refresh_hints)
+            self.refresh_list_queue.put(refresh_hints)
         else:
             self.refresh_views_now(refresh_hints=refresh_hints)
 
@@ -513,23 +562,38 @@ class TestData:
         logger.debug(f'refreshing views for {self.location}')
         sublime.run_command('test_explorer_refresh_all', {'data_location': self.location, 'hints': refresh_hints})
 
+    def refresh_output_views_now(self, test: str):
+        logger.debug(f'refreshing output views for {test}')
+        sublime.run_command('test_explorer_output_refresh_all', {'data_location': self.location, 'test': test})
+
     def refresh_views_continuously(self, stop_token):
         accumulated_hints = set()
+        accumulated_tests_with_output = set()
         last_refresh: Optional[float] = None
 
         while not stop_token.is_set():
             try:
-                refresh_hints = self.refresh_queue.get(timeout=0.05)
+                refresh_hints = self.refresh_list_queue.get(timeout=0.05)
                 for hint in refresh_hints:
                     accumulated_hints.add(hint)
+            except:
+                pass
+
+            try:
+                accumulated_tests_with_output.add(self.refresh_output_queue.get(timeout=0.05))
             except:
                 pass
 
             now = time.time()
             if last_refresh is None or now - last_refresh > MIN_REFRESH_INTERVAL:
                 sublime.set_timeout(partial(self.refresh_views_now, list(accumulated_hints)))
+
+                for test in accumulated_tests_with_output:
+                    sublime.set_timeout(partial(self.refresh_output_views_now, test))
+
                 last_refresh = now
                 accumulated_hints = set()
+                accumulated_tests_with_output = set()
 
     def commit(self, meta=None, tests=None, refresh_hints=[], no_refresh=False):
         with self.mutex:
@@ -607,7 +671,7 @@ class TestData:
                 self.tests.update_parent_status(path)
 
             self.stop_refresh_thread = threading.Event()
-            self.refresh_queue = queue.Queue()
+            self.refresh_list_queue = queue.Queue()
             self.refresh_thread = threading.Thread(target=partial(self.refresh_views_continuously, self.stop_refresh_thread))
             self.refresh_thread.start()
 
@@ -652,9 +716,17 @@ class TestData:
                 self.last_test_finished = None
 
             self.tests.update_parent_status(test.full_name)
+            self.tests.clear_test_output(test.full_name)
             refresh_hints += parents_in_path(test.full_name)
 
+        self.refresh_output_views_now(test_path_to_name(test.full_name))
         self.commit(tests=self.tests, refresh_hints=refresh_hints)
+
+    def notify_test_output(self, test: TestOutput):
+        with self.mutex:
+            self.tests.add_test_output(test.full_name, test.output)
+
+        self.refresh_output_queue.put(test_path_to_name(test.full_name))
 
     def notify_test_finished(self, test: FinishedTest):
         logger.info('finished {}'.format(test_path_to_name(test.full_name)))
@@ -668,5 +740,7 @@ class TestData:
             refresh_hints = [item.full_name]
 
             self.last_test_finished = test.full_name
+            self.tests.flush_test_output(test.full_name)
 
+        self.refresh_output_views_now(test_path_to_name(test.full_name))
         self.commit(tests=self.tests, refresh_hints=refresh_hints)
