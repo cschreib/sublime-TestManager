@@ -13,7 +13,7 @@ from functools import partial
 import sublime
 
 TEST_SEPARATOR = '/'
-MIN_REFRESH_TIME = 0.1 # seconds
+MIN_REFRESH_INTERVAL = 0.1 # seconds
 
 class TestStatus(enum.Enum):
     PASSED = 'passed'
@@ -489,7 +489,7 @@ class TestData:
                 pass
 
             now = time.time()
-            if last_refresh is None or now - last_refresh > MIN_REFRESH_TIME:
+            if last_refresh is None or now - last_refresh > MIN_REFRESH_INTERVAL:
                 sublime.set_timeout(partial(self.refresh_views_now, list(accumulated_hints)))
                 last_refresh = now
                 accumulated_hints = set()
