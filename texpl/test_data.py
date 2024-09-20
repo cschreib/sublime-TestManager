@@ -475,11 +475,15 @@ class TestData:
             self.commit(meta=self.meta, tests=self.tests, no_refresh=True)
 
     def is_initialised(self):
-        return TestMetaData.is_initialised(self.location) and TestData.is_initialised(self.location)
+        return TestMetaData.is_initialised(self.location) and TestList.is_initialised(self.location)
 
     def load(self):
-        self.tests = TestList.from_location(self.location)
-        self.meta = TestMetaData.from_location(self.location)
+        try:
+            self.tests = TestList.from_location(self.location)
+            self.meta = TestMetaData.from_location(self.location)
+        except Exception as e:
+            logger.error(f'error during load: {e}')
+            raise
 
     def init(self):
         self.commit(meta=TestMetaData(self.location), tests=TestList(self.location))
@@ -515,15 +519,18 @@ class TestData:
     def commit(self, meta=None, tests=None, refresh_hints=[], no_refresh=False):
         with self.mutex:
             # TODO: put this into the cmd for the 'data' queue
+            try:
+                if meta is not None:
+                    self.meta = meta
+                    self.meta.save()
 
-            if meta is not None:
-                self.meta = meta
-                self.meta.save()
-
-            if tests is not None:
-                self.tests = tests
-                self.stats = None
-                self.tests.save(refresh_hints=refresh_hints)
+                if tests is not None:
+                    self.tests = tests
+                    self.stats = None
+                    self.tests.save(refresh_hints=refresh_hints)
+            except Exception as e:
+                logger.error(f'error during commit: {e}')
+                raise
 
         if not no_refresh and (meta is not None or tests is not None):
             self.refresh_views(refresh_hints=refresh_hints)

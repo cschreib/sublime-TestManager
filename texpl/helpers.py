@@ -122,6 +122,10 @@ class TestDataHelper(SettingsHelper):
             return
 
         if not location in TEST_DATA_LOOKUP:
-            TEST_DATA_LOOKUP[location] = TestData(location)
+            try:
+                TEST_DATA_LOOKUP[location] = TestData(location)
+            except Exception as e:
+                logger.error(f'error creating TestData: {e}')
+                raise
 
         return TEST_DATA_LOOKUP[location]
