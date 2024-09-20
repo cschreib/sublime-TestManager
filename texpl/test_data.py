@@ -9,6 +9,8 @@ import threading
 from datetime import datetime
 from typing import Optional, List, Dict
 from functools import partial
+import sqlite3
+from contextlib import closing
 
 import sublime
 
@@ -47,8 +49,7 @@ RUN_STATUS_PRIORITY = {
     RunStatus.RUNNING: 2
 }
 
-TEST_DATA_MAIN_FILE = 'main.json'
-TEST_DATA_TESTS_FILE = 'tests.json'
+DB_FILE = 'tests.sqlite3'
 
 logger = logging.getLogger('TestExplorer.test_data')
 
@@ -59,17 +60,11 @@ def status_merge(status1, status2):
 def run_status_merge(status1, status2):
     return status1 if RUN_STATUS_PRIORITY[status1] > RUN_STATUS_PRIORITY[status2] else status2
 
-def date_from_json(data: Optional[str]) -> Optional[datetime]:
+def date_from_db(data: Optional[str]) -> Optional[datetime]:
     if data is None:
         return None
 
     return datetime.fromisoformat(data)
-
-def date_to_json(data: Optional[datetime]) -> Optional[str]:
-    if data is None:
-        return None
-
-    return data.isoformat()
 
 def test_name_to_path(name: str):
     path = name.split(TEST_SEPARATOR)
@@ -91,17 +86,13 @@ class TestLocation:
         self.line = line
 
     @staticmethod
-    def from_json(json_data: Optional[dict]):
-        if json_data is None:
+    def from_row(row: sqlite3.Row):
+        if row['location_executable'] is None:
             return None
 
-        return TestLocation(executable=json_data['executable'],
-                            file=json_data['file'],
-                            line=json_data['line'])
-
-    def json(self) -> Dict:
-        return {'executable': self.executable, 'file': self.file, 'line': self.line}
-
+        return TestLocation(executable=row['location_executable'],
+                            file=row['location_file'],
+                            line=row['location_line'])
 
 class DiscoveryError(Exception):
     def __init__(self, message, details : Optional[List[str]] = None):
@@ -155,40 +146,41 @@ class TestItem:
         self.children: Optional[Dict[str, TestItem]] = children
 
     @staticmethod
-    def from_json(json_data: Dict):
-        item = TestItem(name=json_data['name'],
-                        full_name=json_data['full_name'],
-                        framework_id=json_data['framework_id'],
-                        run_id=json_data['run_id'],
-                        location=TestLocation.from_json(json_data.get('location', None)),
-                        last_status=TestStatus[json_data['last_status'].upper()],
-                        run_status=RunStatus[json_data['run_status'].upper()],
-                        last_run=date_from_json(json_data.get('last_run', None)))
+    def from_row(row: sqlite3.Row):
+        return TestItem(name=row['name'],
+                        full_name=row['full_name'],
+                        framework_id=row['framework_id'],
+                        run_id=row['run_id'],
+                        location=TestLocation.from_row(row),
+                        last_status=TestStatus[row['last_status'].upper()],
+                        run_status=RunStatus[row['run_status'].upper()],
+                        last_run=date_from_db(row['last_run']),
+                        children=None if row['leaf'] else {})
 
-        if 'children' in json_data and json_data['children'] is not None:
-            item.children = {}
-            for c in json_data['children']:
-                child = TestItem.from_json(c)
-                item.children[child.name] = child
 
-        return item
-
-    def json(self) -> Dict:
-        data = {
-            'name': self.name,
-            'full_name': self.full_name,
-            'framework_id': self.framework_id,
-            'run_id': self.run_id,
-            'location': self.location.json() if self.location is not None else None,
-            'last_status': self.last_status.value,
-            'run_status': self.run_status.value,
-            'last_run': date_to_json(self.last_run)
-        }
+    def save(self, con: sqlite3.Connection):
+        con.execute('INSERT OR REPLACE INTO tests VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+            (self.name,
+            self.full_name,
+            self.framework_id,
+            self.run_id,
+            self.location.executable if self.location is not None else None,
+            self.location.file if self.location is not None else None,
+            self.location.line if self.location is not None else None,
+            self.last_status.value,
+            self.run_status.value,
+            self.last_run,
+            self.children is None))
 
         if self.children is not None:
-            data['children'] = [c.json() for c in self.children.values()]
+            for c in self.children.values():
+                c.save(con)
 
-        return data
+    def save_children(self, con: sqlite3.Connection):
+        self.save(con)
+        if self.children is not None:
+            for c in self.children.values():
+                c.save_children(con)
 
     @staticmethod
     def from_discovered(test: DiscoveredTest):
@@ -268,42 +260,63 @@ def get_test_stats(item: TestItem):
 
 
 class TestList:
-    def __init__(self, location: str, root: Optional[TestItem] = None):
+    def __init__(self, location: str):
         self.location = location
-        if not root:
-            self.root = TestItem(name='root', full_name='root', children={})
-            self.run_id_lookup = {}
-        else:
-            self.root = root
-            self.run_id_lookup = {}
-            self.make_run_id_lookup(self.root, ignore_parent=True)
-
-    @staticmethod
-    def from_json(location: str, json_data: Dict):
-        return TestList(location, root=TestItem.from_json(json_data))
+        self.root = TestItem(name='root', full_name='root', children={})
+        self.run_id_lookup = {}
 
     @staticmethod
     def from_location(location):
-        file_path = os.path.join(location, TEST_DATA_TESTS_FILE)
-        with open(file_path, 'r') as f:
-            json_data = json.load(f)
+        tests = TestList(location=location)
+        with closing(sqlite3.connect(os.path.join(location, DB_FILE))) as con:
+            with con:
+                con.row_factory = sqlite3.Row
+                cur = con.execute('SELECT * from tests ORDER BY full_name ASC')
+                while True:
+                    rows = cur.fetchmany(size=128)
+                    if len(rows) == 0:
+                        break
 
-        return TestList.from_json(location, json_data)
+                    for row in rows:
+                        test = TestItem.from_row(row)
+                        tests.update_test(test_name_to_path(test.full_name), test)
+
+        return tests
 
     @staticmethod
     def is_initialised(location):
-        return os.path.exists(os.path.join(location, TEST_DATA_TESTS_FILE))
-
-    def json(self) -> Dict:
-        return self.root.json()
-
-    def save_to(self, file_path):
-        with open(file_path, 'w') as f:
-            json.dump(self.json(), f, indent=2)
+        return os.path.exists(os.path.join(location, DB_FILE))
 
     def save(self, refresh_hints=[]):
         os.makedirs(self.location, exist_ok=True)
-        self.save_to(os.path.join(self.location, TEST_DATA_TESTS_FILE))
+        with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
+            with con:
+                tables = [r[0] for r in con.execute('SELECT name FROM sqlite_master').fetchall()]
+                if not 'tests' in tables:
+                    con.execute("""CREATE TABLE tests(
+                        name TEXT,
+                        full_name TEXT PRIMARY KEY,
+                        framework_id TEXT,
+                        run_id TEXT,
+                        location_executable TEXT,
+                        location_file TEXT,
+                        location_line INT,
+                        last_status TEXT,
+                        run_status TEXT,
+                        last_run TIMESTAMP,
+                        leaf BOOL
+                        )""")
+
+                if len(refresh_hints) == 0:
+                    assert self.root.children is not None
+                    for c in self.root.children.values():
+                        c.save_children(con)
+                else:
+                    for hint in refresh_hints:
+                        test = self.find_test(test_name_to_path(hint))
+                        if test is None:
+                            continue
+                        test.save(con)
 
     def is_empty(self):
         return not self.root.children
@@ -321,7 +334,7 @@ class TestList:
 
         return parent
 
-    def add_item_to_run_id_lookup(self, item: TestItem, item_path: List[str]):
+    def add_item_to_run_id_lookup(self, item: TestItem):
         if item.framework_id not in self.run_id_lookup:
             self.run_id_lookup[item.framework_id] = {}
 
@@ -329,19 +342,15 @@ class TestList:
         if item.location.executable not in self.run_id_lookup[item.framework_id]:
             self.run_id_lookup[item.framework_id][item.location.executable] = {}
 
-        self.run_id_lookup[item.framework_id][item.location.executable][item.run_id] = item_path
+        self.run_id_lookup[item.framework_id][item.location.executable][item.run_id] = test_name_to_path(item.full_name)
 
-    def make_run_id_lookup(self, item: TestItem, parent=[], ignore_parent=False):
-        item_path = copy.deepcopy(parent)
-        if not ignore_parent:
-            item_path.append(item.name)
-
+    def make_run_id_lookup(self, item: TestItem):
         if item.children is None:
-            self.add_item_to_run_id_lookup(item, item_path)
+            self.add_item_to_run_id_lookup(item)
             return
 
         for child in item.children.values():
-            self.make_run_id_lookup(child, parent=item_path)
+            self.make_run_id_lookup(child)
 
     def find_test_by_run_id(self, framework: str, executable: str, run_id: str) -> Optional[List[str]]:
         return self.run_id_lookup.get(framework, {}).get(executable, {}).get(run_id, None)
@@ -354,7 +363,8 @@ class TestList:
             if not item_path[i] in parent.children:
                 if i == len(item_path) - 1:
                     parent.children[item_path[i]] = item
-                    self.add_item_to_run_id_lookup(item, item_path)
+                    if item.children is None:
+                        self.add_item_to_run_id_lookup(item)
                 else:
                     parent.children[item_path[i]] = TestItem(name=item_path[i],
                                                              full_name=test_path_to_name(item_path[:i+1]),
@@ -413,37 +423,43 @@ class TestMetaData:
         pass
 
     @staticmethod
-    def from_json(location: str, json_data: Dict):
+    def from_row(location: str, row: sqlite3.Row):
         data = TestMetaData(location)
-        data.last_discovery = date_from_json(json_data['last_discovery'])
-        data.running = json_data['running']
+        data.last_discovery = date_from_db(row['last_discovery'])
+        data.running = row['running']
         return data
 
     @staticmethod
     def from_location(location):
-        file_path = os.path.join(location, TEST_DATA_MAIN_FILE)
-        with open(file_path, 'r') as f:
-            json_data = json.load(f)
-
-        return TestMetaData.from_json(location, json_data)
+        with closing(sqlite3.connect(os.path.join(location, DB_FILE))) as con:
+            with con:
+                con.row_factory = sqlite3.Row
+                row = con.execute('SELECT * from meta').fetchone()
+                assert row is not None
+                return TestMetaData.from_row(location, row)
 
     @staticmethod
     def is_initialised(location):
-        return os.path.exists(os.path.join(location, TEST_DATA_MAIN_FILE))
-
-    def json(self) -> Dict:
-        return {
-            'last_discovery': date_to_json(self.last_discovery),
-            'running': self.running
-        }
-
-    def save_to(self, file_path):
-        with open(file_path, 'w') as f:
-            json.dump(self.json(), f, indent=2)
+        return os.path.exists(os.path.join(location, DB_FILE))
 
     def save(self):
         os.makedirs(self.location, exist_ok=True)
-        self.save_to(os.path.join(self.location, TEST_DATA_MAIN_FILE))
+        with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
+            with con:
+                tables = [r[0] for r in con.execute('SELECT name FROM sqlite_master').fetchall()]
+                if not 'meta' in tables:
+                    con.execute("""CREATE TABLE meta(
+                        last_discovery TIMESTAMP,
+                        running BOOL
+                        )""")
+                    con.execute('INSERT INTO meta VALUES (?,?)',
+                        (self.last_discovery, self.running))
+                else:
+                    con.execute("""UPDATE meta SET
+                        last_discovery=?,
+                        running=?
+                        """,
+                        (self.last_discovery, self.running))
 
 
 class TestData:
