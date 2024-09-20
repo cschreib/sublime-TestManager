@@ -1,5 +1,4 @@
 # coding: utf-8
-import datetime
 import os
 import logging
 from datetime import datetime
@@ -10,7 +9,6 @@ import sublime
 from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, EventListener
 
 from .util import find_views_for_data, SettingsHelper, readable_date_delta
-from .cmd import Cmd
 from .helpers import TestDataHelper
 from .test_data import TestList, get_test_stats, TestItem, TestData, RunStatus, test_name_to_path
 
@@ -275,7 +273,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         return [(item.full_name, self.build_info(item, line, max_length)) for item, line in lines], max_length
 
 
-class TestExplorerTextCmd(Cmd): # TODO remove this?
+class TestExplorerTextCmd:
 
     # selection commands
     def get_first_point(self):
