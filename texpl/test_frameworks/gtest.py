@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from tempfile import TemporaryDirectory
 
 from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus
+from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
 from ..cmd import Cmd
 
 logger = logging.getLogger('TestExplorer.gtest')
@@ -32,19 +32,26 @@ class OutputParser:
                 return
 
             self.test_data.notify_test_started(StartedTest(self.current_test))
-        elif line.startswith('[       OK ] '):
+
+        if self.current_test:
+            self.test_data.notify_test_output(TestOutput(self.current_test, line))
+
+        if line.startswith('[       OK ] '):
             if self.current_test is None:
                 return
+
             self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.PASSED))
             self.current_test = None
         elif line.startswith('[  FAILED  ] '):
             if self.current_test is None:
                 return
+
             self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.FAILED))
             self.current_test = None
         elif line.startswith('[  SKIPPED ] '):
             if self.current_test is None:
                 return
+
             self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.SKIPPED))
             self.current_test = None
 
