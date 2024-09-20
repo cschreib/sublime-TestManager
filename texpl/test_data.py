@@ -268,7 +268,8 @@ def get_test_stats(item: TestItem):
 
 
 class TestList:
-    def __init__(self, root: Optional[TestItem] = None):
+    def __init__(self, location: str, root: Optional[TestItem] = None):
+        self.location = location
         if not root:
             self.root = TestItem(name='root', full_name='root', children={})
             self.run_id_lookup = {}
@@ -278,22 +279,31 @@ class TestList:
             self.make_run_id_lookup(self.root, ignore_parent=True)
 
     @staticmethod
-    def from_json(json_data: Dict):
-        return TestList(root=TestItem.from_json(json_data))
+    def from_json(location: str, json_data: Dict):
+        return TestList(location, root=TestItem.from_json(json_data))
 
     @staticmethod
-    def from_file(file_path):
+    def from_location(location):
+        file_path = os.path.join(location, TEST_DATA_TESTS_FILE)
         with open(file_path, 'r') as f:
             json_data = json.load(f)
 
-        return TestList.from_json(json_data)
+        return TestList.from_json(location, json_data)
+
+    @staticmethod
+    def is_initialised(location):
+        return os.path.exists(os.path.join(location, TEST_DATA_TESTS_FILE))
 
     def json(self) -> Dict:
         return self.root.json()
 
-    def save(self, file_path):
+    def save_to(self, file_path):
         with open(file_path, 'w') as f:
             json.dump(self.json(), f, indent=2)
+
+    def save(self, refresh_hints=[]):
+        os.makedirs(self.location, exist_ok=True)
+        self.save_to(os.path.join(self.location, TEST_DATA_TESTS_FILE))
 
     def is_empty(self):
         return not self.root.children
@@ -396,24 +406,30 @@ class TestList:
 
 
 class TestMetaData:
-    def __init__(self):
+    def __init__(self, location: str):
+        self.location = location
         self.last_discovery: Optional[datetime] = None
         self.running = False
         pass
 
     @staticmethod
-    def from_json(json_data: Dict):
-        data = TestMetaData()
+    def from_json(location: str, json_data: Dict):
+        data = TestMetaData(location)
         data.last_discovery = date_from_json(json_data['last_discovery'])
         data.running = json_data['running']
         return data
 
     @staticmethod
-    def from_file(file_path):
+    def from_location(location):
+        file_path = os.path.join(location, TEST_DATA_MAIN_FILE)
         with open(file_path, 'r') as f:
             json_data = json.load(f)
 
-        return TestMetaData.from_json(json_data)
+        return TestMetaData.from_json(location, json_data)
+
+    @staticmethod
+    def is_initialised(location):
+        return os.path.exists(os.path.join(location, TEST_DATA_MAIN_FILE))
 
     def json(self) -> Dict:
         return {
@@ -421,9 +437,13 @@ class TestMetaData:
             'running': self.running
         }
 
-    def save(self, file_path):
+    def save_to(self, file_path):
         with open(file_path, 'w') as f:
             json.dump(self.json(), f, indent=2)
+
+    def save(self):
+        os.makedirs(self.location, exist_ok=True)
+        self.save_to(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
 
 class TestData:
@@ -455,16 +475,14 @@ class TestData:
             self.commit(meta=self.meta, tests=self.tests, no_refresh=True)
 
     def is_initialised(self):
-        return os.path.exists(self.location) and \
-            os.path.exists(os.path.join(self.location, TEST_DATA_MAIN_FILE)) and \
-            os.path.exists(os.path.join(self.location, TEST_DATA_TESTS_FILE))
+        return TestMetaData.is_initialised(self.location) and TestData.is_initialised(self.location)
 
     def load(self):
-        self.tests = TestList.from_file(os.path.join(self.location, TEST_DATA_TESTS_FILE))
-        self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
+        self.tests = TestList.from_location(self.location)
+        self.meta = TestMetaData.from_location(self.location)
 
     def init(self):
-        self.commit(meta=TestMetaData(), tests=TestList())
+        self.commit(meta=TestMetaData(self.location), tests=TestList(self.location))
 
     def refresh_views(self, refresh_hints=[]):
         if self.is_running_tests() and len(refresh_hints) > 0:
@@ -497,16 +515,15 @@ class TestData:
     def commit(self, meta=None, tests=None, refresh_hints=[], no_refresh=False):
         with self.mutex:
             # TODO: put this into the cmd for the 'data' queue
-            os.makedirs(self.location, exist_ok=True)
 
             if meta is not None:
                 self.meta = meta
-                self.meta.save(os.path.join(self.location, TEST_DATA_MAIN_FILE))
+                self.meta.save()
 
             if tests is not None:
                 self.tests = tests
                 self.stats = None
-                self.tests.save(os.path.join(self.location, TEST_DATA_TESTS_FILE))
+                self.tests.save(refresh_hints=refresh_hints)
 
         if not no_refresh and (meta is not None or tests is not None):
             self.refresh_views(refresh_hints=refresh_hints)
@@ -539,7 +556,7 @@ class TestData:
             self.meta.last_discovery = discovery_time
 
             old_tests = self.tests
-            new_tests = TestList()
+            new_tests = TestList(self.location)
             for test in discovered_tests:
                 item = old_tests.find_test(test.full_name)
                 if not item:
