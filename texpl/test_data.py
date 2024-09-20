@@ -437,24 +437,31 @@ class TestData:
         self.stop_refresh_thread = threading.Event()
         self.refresh_queue = queue.Queue()
 
-        if not os.path.exists(location) or \
-            not os.path.exists(os.path.join(location, TEST_DATA_MAIN_FILE)) or \
-            not os.path.exists(os.path.join(location, TEST_DATA_TESTS_FILE)):
+        if not self.is_initialised():
             self.init()
-        else:
-            self.tests = TestList.from_file(os.path.join(self.location, TEST_DATA_TESTS_FILE))
-            self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
+            return
 
-            if self.meta.running:
-                # Plugin was reloaded or SublimeText killed while running tests, so we didn't
-                # register a "run finished" event. Generate it now to clean everything up.
-                self.meta.running = False
+        self.load()
 
-                for item in self.tests.tests():
-                    item.notify_run_stopped()
+        if self.meta.running:
+            # Plugin was reloaded or SublimeText killed while running tests, so we didn't
+            # register a "run finished" event. Generate it now to clean everything up.
+            self.meta.running = False
 
-                self.tests.update_parent_statuses()
-                self.commit(meta=self.meta, tests=self.tests, no_refresh=True)
+            for item in self.tests.tests():
+                item.notify_run_stopped()
+
+            self.tests.update_parent_statuses()
+            self.commit(meta=self.meta, tests=self.tests, no_refresh=True)
+
+    def is_initialised(self):
+        return os.path.exists(self.location) and \
+            os.path.exists(os.path.join(self.location, TEST_DATA_MAIN_FILE)) and \
+            os.path.exists(os.path.join(self.location, TEST_DATA_TESTS_FILE))
+
+    def load(self):
+        self.tests = TestList.from_file(os.path.join(self.location, TEST_DATA_TESTS_FILE))
+        self.meta = TestMetaData.from_file(os.path.join(self.location, TEST_DATA_MAIN_FILE))
 
     def init(self):
         self.commit(meta=TestMetaData(), tests=TestList())
