@@ -4,6 +4,7 @@ import logging
 import sublime
 from .test_data import TestData
 from .util import SettingsHelper
+from typing import Optional
 
 logger = logging.getLogger('TestExplorer.helpers')
 
@@ -115,11 +116,11 @@ class TestDataHelper(SettingsHelper):
         if init:
             TestData(location).init()
 
-    def get_test_data(self, location=None):
+    def get_test_data(self, location=None) -> Optional[TestData]:
         if not location:
             location = self.get_test_data_location()
         if not location:
-            return
+            return None
 
         if not location in TEST_DATA_LOOKUP:
             try:
