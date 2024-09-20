@@ -1,9 +1,4 @@
 [
-    // Refresh
-    { "keys": ["ctrl+r"], "command": "test_explorer_refresh",
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
-    },
-
     // overwrite some stuff
     { "keys": ["ctrl+s"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]},
     { "keys": ["ctrl+z"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]},
