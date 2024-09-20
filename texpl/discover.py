@@ -11,7 +11,7 @@ from sublime_plugin import WindowCommand
 from .cmd import Cmd
 from .helpers import TestDataHelper
 from .test_framework import TestFramework
-from .test_data import DiscoveryError, TestData
+from .test_data import DiscoveryError, TestData, test_path_to_name
 from .util import SettingsHelper
 
 logger = logging.getLogger('TestExplorer.discovery')
@@ -114,8 +114,7 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
         logger.info(f'Discovered {len(discovered_tests)} tests')
 
         if sort:
-            # Sort by increasing depth first, then by name.
-            comparator = lambda test: (len(test.full_name), '/'.join(test.full_name))
+            comparator = lambda test: (test_path_to_name(test.full_name))
             discovered_tests = sorted(discovered_tests, key=comparator)
 
         data.notify_discovered_tests(discovered_tests, discovery_time=start)
