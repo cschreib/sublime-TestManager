@@ -9,10 +9,10 @@ PYTEST_MIN_VERSION = 3
 DISCOVERY_HEADER = 'SUBLIME_DISCOVERY: '
 STATUS_HEADER = 'SUBLIME_STATUS: '
 
-def get_file(item):
+def get_file(item, config):
     try:
         # location is (file path, line, test name).
-        return item.location[0]
+        return os.path.join(config.rootpath, item.location[0])
     except:
         return item.nodeid.split('::')[0]
 
@@ -44,7 +44,7 @@ def pytest_collection_finish(session):
     global collected_errors
 
     try:
-        tests = [{'name': make_name(item), 'file': get_file(item), 'line': get_line_number(item)} for item in session.items]
+        tests = [{'name': make_name(item), 'file': get_file(item, session.config), 'line': get_line_number(item)} for item in session.items]
     except:
         tests = []
 
