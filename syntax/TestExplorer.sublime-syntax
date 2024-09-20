@@ -62,7 +62,7 @@ contexts:
       captures:
         1: comment.other.test-explorer.tests.total
         2: constant.numeric.other.test-explorer.tests.total
-    - match: (last-run:)([^\(]+)(\([^\)]+\))
+    - match: (last-run:)([^\(\n]+)(\([^\)]+\))?
       captures:
         1: comment.other.test-explorer.tests.last-run
         2: string.other.test-explorer.time-delta
@@ -77,7 +77,7 @@ contexts:
       pop: true
 
   header:
-    - match: '^Last discovery:\s+([^\(]+)(\([^\)]+\))\n'
+    - match: '^Last discovery:\s+([^\(\n]+)(\([^\)]+\))?\n'
       scope: comment.test-explorer.header.discovery
       captures:
         1: string.other.test-explorer.time-delta
@@ -89,7 +89,7 @@ contexts:
         1: string.other.test-explorer.time-delta
         2: comment.other.test-explorer.datetime
 
-    - match: '^Last run:\s+([^\(]+)(\([^\)]+\))\n'
+    - match: '^Last run:\s+([^\(\n]+)(\([^\)]+\))?\n'
       scope: comment.test-explorer.header.last-run
       captures:
         1: string.other.test-explorer.time-delta

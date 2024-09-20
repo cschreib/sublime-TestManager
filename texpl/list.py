@@ -178,9 +178,9 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         return lines
 
     def build_header(self, data: TestData) -> List[str]:
-        last_discovery = self.date_to_string(data.get_last_discovery())
+        last_discovery = self.date_to_string(data.get_last_discovery(), with_full=True)
         stats = data.get_global_test_stats()
-        last_run = self.date_to_string(stats["last_run"])
+        last_run = self.date_to_string(stats["last_run"], with_full=True)
         visibility = self.view.settings().get('visible_tests')
 
         lines = []
@@ -236,11 +236,13 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         fold = '- ' if item.children is not None else '  '
         return f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{item.full_name}{END_OF_NAME_MARKER}'
 
-    def date_to_string(self, date: Optional[datetime]) -> str:
+    def date_to_string(self, date: Optional[datetime], with_full=False) -> str:
         if date is None:
             return '--'
-
-        return f'{readable_date_delta(date)} ({date.isoformat()})'
+        elif with_full:
+            return f'{readable_date_delta(date)} ({date.isoformat(timespec="seconds")})'
+        else:
+            return readable_date_delta(date)
 
     def stats_to_string(self, stats) -> str:
         stats['failed'] += stats['crashed']
