@@ -130,11 +130,14 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
             add_line('Tests:')
 
             line_ids = {}
+            test_ids = {}
             for test, line in visible_tests:
                 line_ids[test] = line_count
+                test_ids[str(line_count)] = test
                 add_line(line)
 
             structure['test_lines'] = line_ids
+            structure['line_tests'] = test_ids
 
         add_line('')
 
@@ -234,7 +237,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         indent = '  ' * depth
         symbol = f'[{STATUS_SYMBOL[self.item_display_status(item)]}]'
         fold = '- ' if item.children is not None else '  '
-        return f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{item.full_name}{END_OF_NAME_MARKER}'
+        return f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{item.name}{END_OF_NAME_MARKER}'
 
     def date_to_string(self, date: Optional[datetime], with_full=False) -> str:
         if date is None:
@@ -317,13 +320,29 @@ class TestExplorerTextCmd(Cmd): # TODO remove this?
     def get_all_node_regions(self):
         return self.view.find_by_selector('meta.test-explorer.test-list.node')
 
+    def get_item_in_region(self, region: sublime.Region, line_map: Optional[Dict[str,str]] = None) -> str:
+        if line_map is None:
+            line_map = self.view.settings().get('test_structure')['line_tests']
+            assert line_map is not None
+
+        return line_map[str(self.view.rowcol(region.a)[0])]
+
+    def get_item_line(self, item_name: str, test_map: Optional[Dict[str,int]] = None) -> int:
+        if test_map is None:
+            test_map = self.view.settings().get('test_structure')['test_lines']
+            assert test_map is not None
+
+        return test_map.get(item_name)
+
     def get_all_tests(self) -> List[str]:
         items = self.get_all_leaf_regions()
-        return [self.view.substr(l) for l in items]
+        line_map = self.view.settings().get('test_structure')['line_tests']
+        return [self.get_item_in_region(l, line_map) for l in items]
 
     def get_all_folders(self) -> List[str]:
         items = self.get_all_node_regions()
-        return [self.view.substr(n) for n in items]
+        line_map = self.view.settings().get('test_structure')['line_tests']
+        return [self.get_item_in_region(n, line_map) for n in items]
 
     def get_selected_leaf_regions(self):
         items = []
@@ -338,7 +357,8 @@ class TestExplorerTextCmd(Cmd): # TODO remove this?
         return items
 
     def get_selected_tests(self) -> List[str]:
-        return [self.view.substr(r) for r in self.get_selected_leaf_regions()]
+        line_map = self.view.settings().get('test_structure')['line_tests']
+        return [self.get_item_in_region(r, line_map) for r in self.get_selected_leaf_regions()]
 
     def get_selected_node_regions(self):
         items = []
@@ -353,11 +373,12 @@ class TestExplorerTextCmd(Cmd): # TODO remove this?
         return items
 
     def get_selected_folders(self) -> List[str]:
-        return [self.view.substr(r) for r in self.get_selected_node_regions()]
+        line_map = self.view.settings().get('test_structure')['line_tests']
+        return [self.get_item_in_region(r, line_map) for r in self.get_selected_node_regions()]
 
-    def get_selected_item(self) -> Optional[List[str]]:
+    def get_selected_item(self) -> Optional[str]:
         r = self.get_selected_item_region()
-        return self.view.substr(r) if r else None
+        return self.get_item_in_region(r) if r else None
 
 
 class TestExplorerListCommand(WindowCommand, TestDataHelper):
@@ -454,12 +475,11 @@ class TestExplorerMoveCmd(TestExplorerTextCmd):
             return self.prev_region(regions, point)
 
     def move_to_item(self, which='', where=None, no_scroll=False):
-        tests = [r for r in self.get_all_item_regions() if which == self.view.substr(r)]
-        if not tests:
+        try:
+            line = self.get_item_line(which)
+            self.move_to_region(self.view.text_point(line, 0), no_scroll=no_scroll)
+        except:
             self.move_to_list_top()
-            return
-
-        self.move_to_region(tests[0], no_scroll=no_scroll)
 
     def move_to_list_top(self, no_scroll=False):
         regs = self.view.find_by_selector('meta.test-explorer.test-list.node')
