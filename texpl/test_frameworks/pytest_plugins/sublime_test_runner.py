@@ -65,3 +65,25 @@ def pytest_runtest_protocol(item):
     print('\n' + STATUS_HEADER + json.dumps({'test': make_name(item), 'status': 'started'}))
     yield
     print('\n' + STATUS_HEADER + json.dumps({'test': make_name(item), 'status': 'finished'}))
+
+def make_header(text):
+    total_length = 64
+    remaining = max(0, total_length - len(text) - 2)
+    return f"{'='*(remaining//2)} {text} {'='*(remaining - remaining//2)}"
+
+@pytest.hookimpl(hookwrapper=True, trylast=True)
+def pytest_runtest_logreport(report):
+    if report.when == "call":
+        longrepr = report.longreprtext
+        prev = ''
+        if len(longrepr) > 0:
+            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{make_header("FAILURES")}\n{longrepr}'}))
+            prev = '\n\n'
+        stdout = report.capstdout
+        if len(stdout) > 0:
+            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{prev}{make_header("STDOUT")}\n{stdout}'}))
+            prev = '\n\n'
+        stderr = report.capstderr
+        if len(stderr) > 0:
+            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{prev}{make_header("STDERR")}\n{stderr}'}))
+    yield
