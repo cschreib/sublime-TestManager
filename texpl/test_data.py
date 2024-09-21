@@ -440,6 +440,9 @@ class TestList:
 
     def flush_test_output(self, item_path: List[str]):
         test_name = test_path_to_name(item_path)
+        if not test_name in self.test_output_buffer:
+            return
+
         output = self.test_output_buffer[test_name]
         del self.test_output_buffer[test_name]
 
