@@ -30,7 +30,7 @@ def clean_xml_content(content, tag):
         return ''
     return ''.join(returned_content[1:-1])
 
-# The content inside these tags is controlled by doctest, don't assume it is output.
+# The content inside these tags is controlled by Catch2, don't assume it is output.
 controlled_tags = ['Info', 'Original', 'Expanded', 'StdOut', 'StdErr', 'Skip', 'Exception', 'FatalErrorCondition']
 
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
@@ -117,7 +117,6 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             if self.current_test is None or self.current_expression is None:
                 return
 
-            prev = '\n\n' if self.has_output else ''
             sep = '-'*64 + '\n'
 
             original = clean_xml_content(self.content, 'Original').strip()
@@ -131,7 +130,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
 
             self.test_data.notify_test_output(TestOutput(self.current_test,
-                f'{prev}{sep}{result}\n  at {file}:{line}\n{sections}{infos}\nExpected: {check}({original})\nActual:   {expanded}\n{sep}'))
+                f'{sep}{result}\n  at {file}:{line}\n{sections}{infos}\nExpected: {check}({original})\nActual:   {expanded}\n{sep}'))
 
             self.has_output = True
             self.current_expression = None
@@ -140,7 +139,6 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             if self.current_test is None or self.current_exception is None:
                 return
 
-            prev = '\n\n' if self.has_output else ''
             sep = '-'*64 + '\n'
 
             message = clean_xml_content(self.content, name).strip()
@@ -149,7 +147,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
 
             self.test_data.notify_test_output(TestOutput(self.current_test,
-                f'{prev}{sep}{result}\n{sections}{infos}{message}\n{sep}'))
+                f'{sep}{result}\n{sections}{infos}{message}\n{sep}'))
 
             self.has_output = True
             self.current_exception = None
@@ -168,6 +166,12 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
                 return
 
             self.content.setdefault(self.current_element[-1], []).append(content)
+
+            if self.current_element[-1] not in controlled_tags:
+                content = self.content[self.current_element[-1]]
+                if len(content) > 1 and len(content[-1].strip()) > 0:
+                    self.test_data.notify_test_output(TestOutput(self.current_test, ''.join(content[1:])))
+                    del content[1:]
 
 
 class Catch2(TestFramework, Cmd):
