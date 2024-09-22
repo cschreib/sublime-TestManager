@@ -7,11 +7,31 @@ from typing import Dict, List, Optional
 from functools import partial
 
 from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus
+from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
 from ..cmd import Cmd
 
 logger = logging.getLogger('TestExplorer.catch2')
 parser_logger = logging.getLogger('TestExplorerParser.catch2')
+
+def make_header(text):
+    total_length = 64
+    remaining = max(0, total_length - len(text) - 2)
+    return f"{'='*(remaining//2)} {text} {'='*(remaining - remaining//2)}"
+
+def clean_xml_content(content, tag):
+    # Remove first and last entry; will be line jump and indentation whitespace, ignored.
+    if not tag in content:
+        return ''
+
+    returned_content = content[tag]
+    del content[tag]
+
+    if len(returned_content) <= 2:
+        return ''
+    return ''.join(returned_content[1:-1])
+
+# The content inside these tags is controlled by doctest, don't assume it is output.
+controlled_tags = ['Info', 'Original', 'Expanded', 'StdOut', 'StdErr', 'Skip']
 
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
     def __init__(self, test_data: TestData, framework: str, executable: str):
@@ -19,11 +39,25 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
         self.test_list = test_data.get_test_list()
         self.framework = framework
         self.executable = executable
+
         self.current_test: Optional[List[str]] = None
+        self.last_status: Optional[TestStatus] = None
+        self.current_element: List[str] = []
+        self.content = {}
+        self.has_output = False
+        self.current_expression: Optional[dict] = None
+        self.current_sections = []
+        self.current_infos = []
 
     def startElement(self, name, attrs):
+        if len(self.current_element) > 0 and self.current_element[-1] not in controlled_tags:
+            content = clean_xml_content(self.content, self.current_element[-1])
+            if self.current_test is not None:
+                self.test_data.notify_test_output(TestOutput(self.current_test, content))
+
         attrs_str = ', '.join(['"{}": "{}"'.format(k, v) for k, v in attrs.items()])
         parser_logger.debug('startElement(' + name + ', ' + attrs_str + ')')
+        self.current_element.append(name)
 
         if name == 'TestCase':
             self.current_test = self.test_list.find_test_by_run_id(self.framework, self.executable, attrs['name'])
@@ -31,27 +65,89 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
                 return
 
             self.test_data.notify_test_started(StartedTest(self.current_test))
-
-        if name == 'OverallResult':
-            if self.current_test is None:
-                return
-
+        elif name == 'OverallResult':
             if 'success' in attrs and attrs['success'] == 'true':
-                status = TestStatus.PASSED
+                self.last_status = TestStatus.PASSED
             else:
-                status = TestStatus.FAILED
+                self.last_status = TestStatus.FAILED
 
             if 'skips' in attrs and attrs['skips'] != '0':
-                status = TestStatus.SKIPPED
-
-            self.test_data.notify_test_finished(FinishedTest(self.current_test, status))
-            self.current_test = None
+                self.last_status = TestStatus.SKIPPED
+        elif name == 'Expression':
+            self.current_expression = attrs
+        elif name == 'Section':
+            self.current_sections.append(attrs)
 
     def endElement(self, name):
+        if name not in controlled_tags:
+            content = clean_xml_content(self.content, name)
+            if self.current_test is not None:
+                self.test_data.notify_test_output(TestOutput(self.current_test, content))
+
         parser_logger.debug('endElement(' + name + ')')
+        self.current_element.pop()
+
+        if name == 'OverallResult':
+            if self.current_test is None or self.last_status is None:
+                return
+
+            prev = '\n\n' if self.has_output else ''
+
+            content = clean_xml_content(self.content, 'Skip')
+            if len(content) > 0:
+                self.test_data.notify_test_output(TestOutput(self.current_test, f'{prev}{make_header("SKIPPED")}\n{content.strip()}'))
+                prev = '\n\n'
+
+            content = clean_xml_content(self.content, 'StdErr')
+            if len(content) > 0:
+                self.test_data.notify_test_output(TestOutput(self.current_test, f'{prev}{make_header("STDERR")}\n{content}'))
+                prev = '\n\n'
+
+            content = clean_xml_content(self.content, 'StdOut')
+            if len(content) > 0:
+                self.test_data.notify_test_output(TestOutput(self.current_test, f'{prev}{make_header("STDOUT")}\n{content}'))
+
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, self.last_status))
+
+            self.current_test = None
+            self.has_output = False
+        elif name == 'Expression':
+            if self.current_test is None or self.current_expression is None:
+                return
+
+            prev = '\n\n' if self.has_output else ''
+            sep = '-'*64 + '\n'
+
+            original = clean_xml_content(self.content, 'Original').strip()
+            expanded = clean_xml_content(self.content, 'Expanded').strip()
+
+            file = self.current_expression["filename"]
+            line = self.current_expression["line"]
+            result = 'FAILED' if self.current_expression["success"] == 'false' else 'PASSED'
+            check = self.current_expression["type"]
+            sections = ''.join([f'  in section "{s["name"]}"\n' for s in self.current_sections])
+            infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
+
+            self.test_data.notify_test_output(TestOutput(self.current_test,
+                f'{prev}{sep}{result}\n  at {file}:{line}\n{sections}{infos}\n  {check}({original})\n  got\n  {expanded}\n{sep}'))
+
+            self.has_output = True
+            self.current_expression = None
+            self.current_infos = []
+        elif name == 'Section':
+            self.current_sections.pop()
+        elif name == 'Info':
+            self.current_infos.append(clean_xml_content(self.content, 'Info').strip())
+        elif name == 'TestCase':
+            self.content = {}
 
     def characters(self, content):
         parser_logger.debug('characters(' + content + ')')
+        if len(self.current_element) > 0:
+            if self.current_test is None:
+                return
+
+            self.content.setdefault(self.current_element[-1], []).append(content)
 
 
 class Catch2(TestFramework, Cmd):
