@@ -31,7 +31,7 @@ def clean_xml_content(content, tag):
     return ''.join(returned_content[1:-1])
 
 # The content inside these tags is controlled by doctest, don't assume it is output.
-controlled_tags = ['Info', 'Original', 'Expanded', 'StdOut', 'StdErr', 'Skip']
+controlled_tags = ['Info', 'Original', 'Expanded', 'StdOut', 'StdErr', 'Skip', 'Exception', 'FatalErrorCondition']
 
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
     def __init__(self, test_data: TestData, framework: str, executable: str):
@@ -75,6 +75,8 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
                 self.last_status = TestStatus.SKIPPED
         elif name == 'Expression':
             self.current_expression = attrs
+        elif name == 'Exception' or name == 'FatalErrorCondition':
+            self.current_exception = attrs
         elif name == 'Section':
             self.current_sections.append(attrs)
 
@@ -133,6 +135,24 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
 
             self.has_output = True
             self.current_expression = None
+            self.current_infos = []
+        elif name == 'Exception' or name == 'FatalErrorCondition':
+            if self.current_test is None or self.current_exception is None:
+                return
+
+            prev = '\n\n' if self.has_output else ''
+            sep = '-'*64 + '\n'
+
+            message = clean_xml_content(self.content, name).strip()
+            result = 'EXCEPTION' if name == 'Exception' else 'CRASH'
+            sections = ''.join([f'  in section "{s["name"]}"\n' for s in self.current_sections])
+            infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
+
+            self.test_data.notify_test_output(TestOutput(self.current_test,
+                f'{prev}{sep}{result}\n{sections}{infos}{message}\n{sep}'))
+
+            self.has_output = True
+            self.current_exception = None
             self.current_infos = []
         elif name == 'Section':
             self.current_sections.pop()

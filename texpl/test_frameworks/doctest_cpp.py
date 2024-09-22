@@ -26,7 +26,7 @@ def clean_xml_content(content, tag):
     return ''.join(returned_content[1:-1])
 
 # The content inside these tags is controlled by doctest, don't assume it is output.
-controlled_tags = ['Info', 'Original', 'Expanded']
+controlled_tags = ['Info', 'Original', 'Expanded', 'Exception']
 
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
     def __init__(self, test_data: TestData, framework: str, executable: str, test_ids: List[str]):
@@ -43,6 +43,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
         self.current_expression: Optional[dict] = None
         self.current_sections = []
         self.current_infos = []
+        self.current_exception: Optional[dict] = None
 
     def startElement(self, name, attrs):
         if len(self.current_element) > 0 and self.current_element[-1] not in controlled_tags:
@@ -87,6 +88,8 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             self.has_output = False
         elif name == 'Expression':
             self.current_expression = attrs
+        elif name == 'Exception':
+            self.current_exception = attrs
         elif name == 'SubCase':
             self.current_sections.append(attrs)
 
@@ -122,7 +125,25 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             self.has_output = True
             self.current_expression = None
             self.current_infos = []
-        elif name == 'Section':
+        elif name == 'Exception':
+            if self.current_test is None or self.current_exception is None:
+                return
+
+            prev = '\n\n' if self.has_output else ''
+            sep = '-'*64 + '\n'
+
+            message = clean_xml_content(self.content, 'Exception').strip()
+            result = 'EXCEPTION' if self.current_exception["crash"] == 'false' else 'CRASH'
+            subcases = ''.join([f'  in subcase "{s["name"]}"\n' for s in self.current_sections])
+            infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
+
+            self.test_data.notify_test_output(TestOutput(self.current_test,
+                f'{prev}{sep}{result}\n{subcases}{infos}{message}\n{sep}'))
+
+            self.has_output = True
+            self.current_exception = None
+            self.current_infos = []
+        elif name == 'SubCase':
             self.current_sections.pop()
         elif name == 'Info':
             self.current_infos.append(clean_xml_content(self.content, 'Info').strip())
