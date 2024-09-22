@@ -129,7 +129,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
 
             self.test_data.notify_test_output(TestOutput(self.current_test,
-                f'{prev}{sep}{result}\n  at {file}:{line}\n{sections}{infos}\n  {check}({original})\n  got\n  {expanded}\n{sep}'))
+                f'{prev}{sep}{result}\n  at {file}:{line}\n{sections}{infos}\nExpected: {check}({original})\nActual:   {expanded}\n{sep}'))
 
             self.has_output = True
             self.current_expression = None
