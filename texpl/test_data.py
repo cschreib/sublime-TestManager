@@ -100,8 +100,9 @@ class DiscoveryError(Exception):
 
 
 class DiscoveredTest:
-    def __init__(self, full_name: List[str] = [], framework_id='', run_id='', location=TestLocation()):
+    def __init__(self, full_name: List[str] = [], discovery_id = 0, framework_id='', run_id='', location=TestLocation()):
         self.full_name = full_name
+        self.discovery_id = discovery_id
         self.framework_id = framework_id
         self.run_id = run_id
         self.location = location
@@ -137,11 +138,12 @@ class FinishedRun:
 
 
 class TestItem:
-    def __init__(self, name='', full_name='', framework_id='', run_id='', location=None,
+    def __init__(self, name='', full_name='', discovery_id=0, framework_id='', run_id='', location=None,
                  last_status=TestStatus.NOT_RUN, run_status=RunStatus.NOT_RUNNING,
                  last_run=None, children: Optional[Dict] = None):
         self.name: str = name
         self.full_name: str = full_name
+        self.discovery_id: int = discovery_id
         self.framework_id: str = framework_id
         self.run_id: str = run_id
         self.location: Optional[TestLocation] = location
@@ -154,6 +156,7 @@ class TestItem:
     def from_row(row: sqlite3.Row):
         return TestItem(name=row['name'],
                         full_name=row['full_name'],
+                        discovery_id=row['discovery_id'],
                         framework_id=row['framework_id'],
                         run_id=row['run_id'],
                         location=TestLocation.from_row(row),
@@ -164,9 +167,10 @@ class TestItem:
 
 
     def save(self, con: sqlite3.Connection):
-        con.execute('INSERT OR REPLACE INTO tests VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        con.execute('INSERT OR REPLACE INTO tests VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
             (self.full_name,
             self.name,
+            self.discovery_id,
             self.framework_id,
             self.run_id,
             self.location.executable if self.location is not None else None,
@@ -196,6 +200,7 @@ class TestItem:
                         location=test.location)
 
     def update_from_discovered(self, test: DiscoveredTest):
+        self.discovery_id = test.discovery_id
         self.framework_id = test.framework_id
         self.run_id = test.run_id
         self.location = test.location
@@ -302,6 +307,7 @@ class TestList:
                     con.execute("""CREATE TABLE tests(
                         full_name TEXT PRIMARY KEY,
                         name TEXT,
+                        discovery_id INT,
                         framework_id TEXT,
                         run_id TEXT,
                         location_executable TEXT,
@@ -379,6 +385,8 @@ class TestList:
                 else:
                     parent.children[item_path[i]] = TestItem(name=item_path[i],
                                                              full_name=test_path_to_name(item_path[:i+1]),
+                                                             discovery_id=item.discovery_id,
+                                                             framework_id=item.framework_id,
                                                              children={})
 
             parent = parent.children[item_path[i]]

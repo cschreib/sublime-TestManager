@@ -119,4 +119,9 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
             comparator = lambda test: (test_path_to_name(test.full_name))
             discovered_tests = sorted(discovered_tests, key=comparator)
 
+        disc_id = 0
+        for t in discovered_tests:
+            t.discovery_id = disc_id
+            disc_id += 1
+
         data.notify_discovered_tests(discovered_tests, discovery_time=start)
