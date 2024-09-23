@@ -511,6 +511,14 @@ class TestMetaData:
                         (self.last_discovery, self.running))
 
 
+def clear_test_data(location):
+    try:
+        db_path = os.path.join(location, DB_FILE)
+        os.remove(db_path)
+    except:
+        pass
+
+
 class TestData:
     def __init__(self, location):
         self.location = location
@@ -553,6 +561,7 @@ class TestData:
             raise
 
     def init(self):
+        clear_test_data(self.location)
         self.commit(meta=TestMetaData(self.location), tests=TestList(self.location))
 
     def refresh_views(self, refresh_hints=[]):

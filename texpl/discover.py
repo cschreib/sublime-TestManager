@@ -11,7 +11,7 @@ from sublime_plugin import WindowCommand
 from .cmd import Cmd
 from .helpers import TestDataHelper
 from .test_framework import TestFramework
-from .test_data import DiscoveryError, TestData, test_path_to_name
+from .test_data import DiscoveryError, TestData, clear_test_data
 from .util import SettingsHelper
 
 logger = logging.getLogger('TestExplorer.discovery')
@@ -33,19 +33,21 @@ class TestExplorerResetCommand(WindowCommand, TestDataHelper):
         return True
 
     def run(self):
-        data = self.get_test_data()
+        data = self.get_test_data(create=False)
         if not data:
-            return
+            location = self.get_test_data_location()
+            if not location:
+                return
 
-        project = self.get_project()
-        if not project:
+            clear_test_data(location)
+            self.get_test_data()
             return
+        else:
+            if data.is_running_tests():
+                sublime.error_message(CANNOT_RESET_WHILE_RUNNING_DIALOG)
+                return
 
-        if data.is_running_tests():
-            sublime.error_message(CANNOT_RESET_WHILE_RUNNING_DIALOG)
-            return
-
-        data.init()
+            data.init()
 
 
 class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper, Cmd):

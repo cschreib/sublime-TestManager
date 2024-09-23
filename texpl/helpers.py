@@ -116,13 +116,16 @@ class TestDataHelper(SettingsHelper):
         if init:
             TestData(location).init()
 
-    def get_test_data(self, location=None) -> Optional[TestData]:
+    def get_test_data(self, location=None, create=True) -> Optional[TestData]:
         if not location:
             location = self.get_test_data_location()
         if not location:
             return None
 
         if not location in TEST_DATA_LOOKUP:
+            if not create:
+                return None
+
             try:
                 TEST_DATA_LOOKUP[location] = TestData(location)
             except Exception as e:
