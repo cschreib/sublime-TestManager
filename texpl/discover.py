@@ -79,10 +79,7 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
         root_dir = os.path.dirname(project)
         frameworks = [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
 
-        sort = self.get_setting('sort_tests')
-        assert isinstance(sort, bool)
-
-        sublime.set_timeout_async(partial(self.discover_tests, data, project, frameworks, sort=sort))
+        sublime.set_timeout_async(partial(self.discover_tests, data, frameworks))
 
     def display_in_panel(self, content):
         panel_name = 'TestExplorer.discovery'
@@ -90,7 +87,7 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
         panel.run_command('test_explorer_panel_write', {'content': content})
         self.window.run_command('show_panel', {'panel': f'output.{panel_name}'})
 
-    def discover_tests(self, data: TestData, project: str, frameworks: List[TestFramework], sort=False):
+    def discover_tests(self, data: TestData, frameworks: List[TestFramework]):
         start = datetime.now()
 
         # TODO: turn this into parallel jobs
@@ -114,10 +111,6 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
             return
 
         logger.info(f'Discovered {len(discovered_tests)} tests')
-
-        if sort:
-            comparator = lambda test: (test_path_to_name(test.full_name))
-            discovered_tests = sorted(discovered_tests, key=comparator)
 
         disc_id = 0
         for t in discovered_tests:

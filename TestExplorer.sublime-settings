@@ -1,9 +1,33 @@
 {
     /*
+     * How to sort tests in the list view.
+     *  - 'name': sort alphabetically by name
+     *  - 'discovery': sort by discovery order (first discovered test at the top)
+     */
+    "list_sort_key": "name",
+
+    /*
+     * The width of a column in the test list is computed as the percentile 'p' of the widths
+     * of all rows, then multiplied by a constant 'a'. This setting is the value of 'p'.
+     * Set this to 1.0 to ensure that all rows fit within the column, at the expense of
+     * possibly having an awkwardly wide column if one or two tests have very long names.
+     */
+    "list_column_width_percentile": 0.95,
+
+    /*
+     * The width of a column in the test list is computed as the percentile 'p' of the widths
+     * of all rows, then multiplied by a constant 'a'. This setting is the value of 'a'.
+     * Set this to 1.0 to have the most compact column.
+     */
+    "list_column_width_factor": 1.1,
+
+    /* DEBUG OPTIONS ------------------------------------------------ */
+
+    /*
      * Log level.
      *
      * If you are experiencing issues, please set this to DEBUG and
-     * provide the log when reporting an issue.
+     * provide the console log when reporting an issue.
      */
     "log_level": "WARNING",
 
@@ -11,7 +35,7 @@
      * Worker Log level.
      *
      * If you are experiencing issues, please set this to DEBUG and
-     * provide the log when reporting an issue.
+     * provide the console log when reporting an issue.
      */
     "worker_log_level": "WARNING",
 
@@ -19,7 +43,7 @@
      * Parser Log level.
      *
      * If you are experiencing issues, please set this to DEBUG and
-     * provide the log when reporting an issue.
+     * provide the console log when reporting an issue.
      */
     "parser_log_level": "WARNING",
 
@@ -46,11 +70,4 @@
      * Mostly for developing purposes. Set to 'null' to disable.
      */
     "parser_log_file": null,
-
-    /*
-     * Whether to sort the tests in the test list or not.
-     * If not sorted, tests will be displayed in the order they were discovered.
-     * The exact order then depends on the native order from the testing framework.
-     */
-    "sort_tests": true
 }

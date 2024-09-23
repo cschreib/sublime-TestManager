@@ -282,7 +282,7 @@ class TestList:
         with closing(sqlite3.connect(os.path.join(location, DB_FILE))) as con:
             with con:
                 con.row_factory = sqlite3.Row
-                cur = con.execute('SELECT * from tests ORDER BY full_name ASC')
+                cur = con.execute('SELECT * from tests')
                 while True:
                     rows = cur.fetchmany(size=128)
                     if len(rows) == 0:

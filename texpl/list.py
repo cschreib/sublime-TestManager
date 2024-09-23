@@ -3,7 +3,7 @@ import os
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Optional, List, Dict, Tuple
+from typing import Callable, Optional, List, Dict, Tuple
 
 import sublime
 from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, EventListener
@@ -115,10 +115,22 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         add_line('')
         add_line('')
 
+        # Fetch settings.
+        visibility = self.view.settings().get('visible_tests')
+        settings = self.get_settings()
+        column_width_percentile = settings.get('list_column_width_percentile', 0.95)
+        column_width_factor = settings.get('list_column_width_factor', 1.1)
+        sort_key_name = settings.get('list_sort_key', 'name')
+
         # Now build the actual test list.
         tests_list = data.get_test_list()
-        visibility = self.view.settings().get('visible_tests')
-        visible_tests, max_length = self.build_tests(tests_list, visibility=visibility)
+
+        sort_key = (lambda c: c.discovery_id) if sort_key_name == 'discovery' else (lambda c: c.full_name)
+        visible_tests, max_length = self.build_tests(tests_list,
+                                                     sort_key,
+                                                     visibility=visibility,
+                                                     column_width_percentile=column_width_percentile,
+                                                     column_width_factor=column_width_factor)
         structure['max_length'] = max_length
 
         if tests_list.is_empty():
@@ -141,7 +153,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         add_line('')
 
         # Add help text.
-        if self.get_setting('explorer_show_help', True):
+        if settings.get('explorer_show_help', True):
             for line in TEST_EXPLORER_HELP.split('\n'):
                 add_line(line)
 
@@ -215,7 +227,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
     def item_depth(self, path: List[str]) -> int:
         return len(path) - 1
 
-    def build_items(self, test_list: TestList, item: TestItem, visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
+    def build_items(self, test_list: TestList, item: TestItem, sort_key: Callable, visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
         lines = []
 
         if item.children:
@@ -223,8 +235,11 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
                 path = test_name_to_path(item.full_name)
                 lines.append((item, self.build_item(item, depth=self.item_depth(path))))
 
-            for child in item.children.values():
-                lines += self.build_items(test_list, child, visibility=visibility)
+            children = [c for c in item.children.values()]
+            children.sort(key=sort_key)
+
+            for child in children:
+                lines += self.build_items(test_list, child, sort_key, visibility=visibility)
         else:
             if not hide_parent and self.item_is_visible(item, visibility=visibility):
                 path = test_name_to_path(item.full_name)
@@ -263,14 +278,16 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         else:
             return f'{line}{padding} (last-run:{self.date_to_string(item.last_run)})'
 
-    def build_tests(self, test_list: TestList, visibility=None):
-        lines = self.build_items(test_list, test_list.root, visibility=visibility, hide_parent=True)
+    def build_tests(self, test_list: TestList, sort_key: Callable, visibility=None, column_width_percentile=1.0, column_width_factor=1.0):
+        lines = self.build_items(test_list, test_list.root, sort_key, visibility=visibility, hide_parent=True)
         if len(lines) == 0:
             return [], 0
 
         line_lengths = [len(line) for _, line in lines]
         line_lengths.sort()
-        max_length = line_lengths[int(len(line_lengths)*0.95)]
+        max_index = len(line_lengths) - 1
+        max_length = int(line_lengths[min(max_index, int(max_index*column_width_percentile))]*column_width_factor)
+
         return [(item.full_name, self.build_info(item, line, max_length)) for item, line in lines], max_length
 
 
