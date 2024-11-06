@@ -14,7 +14,7 @@ from .list import TestExplorerTextCmd
 from .test_framework import TestFramework
 from .discover import NO_FRAMEWORK_CONFIGURED
 from .util import SettingsHelper
-from .test_data import TestData, TestItem, StartedRun, FinishedRun, test_name_to_path
+from .test_data import TestData, TestList, TestItem, StartedRun, FinishedRun, test_name_to_path
 
 logger = logging.getLogger('TestExplorer.runner')
 
@@ -36,7 +36,7 @@ class TestRunHelper(SettingsHelper):
         root_dir = os.path.dirname(project)
         return [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
 
-    def run_tests(self, data: TestData, frameworks: List[TestFramework], tests: List[str]):
+    def run_tests(self, data: TestData, test_list: TestList, frameworks: List[TestFramework], tests: List[str]):
         try:
             test_ids = {}
             test_paths = []
@@ -54,7 +54,7 @@ class TestRunHelper(SettingsHelper):
             for test in tests:
                 logger.debug(f'running {test}...')
                 path = test_name_to_path(test)
-                item = data.get_test_list().find_test(path)
+                item = test_list.find_test(path)
                 if not item:
                     logger.warning(f'{test} not found in list')
                     continue
@@ -106,14 +106,16 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, TestRunHelpe
         if frameworks is None:
             return
 
+        test_list = data.get_test_list()
+
         tests = self.get_selected_tests()
         if len(tests) > 0:
-            sublime.set_timeout_async(partial(self.run_tests, data, frameworks, tests))
+            sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, tests))
             return
 
         tests = self.get_selected_folders()
         if len(tests) > 0:
-            sublime.set_timeout_async(partial(self.run_tests, data, frameworks, tests))
+            sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, tests))
             return
 
 
@@ -136,17 +138,19 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
         if frameworks is None:
             return
 
+        test_list = data.get_test_list()
+
         if start == "one":
-            choices = [t.full_name for t in data.get_test_list().tests()]
+            choices = [t.full_name for t in test_list.tests()]
             if len(choices) == 0:
                 return
 
-            self.window.show_quick_panel(choices, partial(self.run_one_test, data, frameworks, choices), sublime.MONOSPACE_FONT)
+            self.window.show_quick_panel(choices, partial(self.run_one_test, data, test_list, frameworks, choices), sublime.MONOSPACE_FONT)
         elif start == "all":
-            sublime.set_timeout_async(partial(self.run_tests, data, frameworks, ['']))
+            sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, ['']))
 
-    def run_one_test(self, data: TestData, frameworks: List[TestFramework], choices: List[str], test_id: int):
-        sublime.set_timeout_async(partial(self.run_tests, data, frameworks, [choices[test_id]]))
+    def run_one_test(self, data: TestData, test_list: TestList, frameworks: List[TestFramework], choices: List[str], test_id: int):
+        sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, [choices[test_id]]))
 
 
 
