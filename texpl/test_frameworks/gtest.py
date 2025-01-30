@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
 from ..cmd import Cmd
+from .generic import get_generic_parser
 
 logger = logging.getLogger('TestExplorer.gtest')
 parser_logger = logging.getLogger('TestExplorerParser.gtest')
@@ -65,7 +66,8 @@ class GoogleTest(TestFramework, Cmd):
                        cwd: Optional[str] = None,
                        args: List[str] = [],
                        path_prefix_style: str = 'full',
-                       custom_prefix: Optional[str] = None):
+                       custom_prefix: Optional[str] = None,
+                       parser: str = 'default'):
         super().__init__(test_data, project_root_dir)
         self.test_data = test_data
         self.framework_id = framework_id
@@ -75,6 +77,7 @@ class GoogleTest(TestFramework, Cmd):
         self.args = args
         self.path_prefix_style = path_prefix_style
         self.custom_prefix = custom_prefix
+        self.parser = parser
 
     @staticmethod
     def from_json(test_data: TestData, project_root_dir: str, json_data: Dict):
@@ -87,7 +90,8 @@ class GoogleTest(TestFramework, Cmd):
                           cwd=json_data.get('cwd', None),
                           args=json_data.get('args', []),
                           path_prefix_style=json_data.get('path_prefix_style', 'full'),
-                          custom_prefix=json_data.get('custom_prefix', None))
+                          custom_prefix=json_data.get('custom_prefix', None),
+                          parser=json_data.get('parser', 'default'))
 
     def get_id(self):
         return self.framework_id
@@ -198,7 +202,13 @@ class GoogleTest(TestFramework, Cmd):
                 test_filters = ':'.join(test_ids)
                 run_args = [self.make_executable_path(executable), f'--gtest_output=json:{output_file}', '--gtest_filter=' + test_filters]
 
-                parser = OutputParser(self.test_data, self.framework_id, executable)
+                parser = get_generic_parser(parser=self.parser,
+                                            test_data=self.test_data,
+                                            framework_id=self.framework_id,
+                                            executable=executable)
+
+                if parser is None:
+                    parser = OutputParser(self.test_data, self.framework_id, executable)
 
                 self.cmd_streamed(run_args + self.args, parser.feed, self.test_data.stop_tests_event,
                     queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
