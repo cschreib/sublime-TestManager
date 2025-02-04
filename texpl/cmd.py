@@ -176,10 +176,17 @@ class Cmd:
                 if stdin and hasattr(stdin, 'encode'):
                     stdin = stdin.encode(encoding)
 
+                startupinfo = None
+                if hasattr(subprocess, 'STARTUPINFO'):
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    startupinfo.wShowWindow = subprocess.SW_HIDE
+
                 with subprocess.Popen(command,
                                         stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT,
+                                        startupinfo=startupinfo,
                                         cwd=cwd,
                                         env=environment) as proc:
                     if stream_reader is not None:
