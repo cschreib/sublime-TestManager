@@ -107,7 +107,10 @@ class TestExplorerOutputRefresh(TextCommand, TestDataHelper):
         self.view.replace(edit, sublime.Region(0, self.view.size()), output)
         self.view.set_read_only(True)
         self.view.sel().clear()
-        self.view.show(self.view.size())
+
+        autoscroll = self.get_setting('explorer_output_auto_scroll', True) is True
+        if autoscroll:
+            self.view.show(self.view.size())
 
 
 class TestExplorerOutputRefreshAllCommand(ApplicationCommand, TestDataHelper):
