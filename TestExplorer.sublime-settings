@@ -21,6 +21,16 @@
      */
     "list_column_width_factor": 1.1,
 
+    /*
+     * Max depth to show starting from focussed item. If 0, show all tests. If 1, only show
+     * the immediate child of the currently focussed item (default focus is root, so only the
+     * first level in the test hierarchy). If you don't have many tests, leave this to 0 and don't
+     * worry about focussing. If you have lots of tests, set this to 1, and focus on the test
+     * executable / suite / etc that you are interested in, to keep the content of test explorer
+     * manageable.
+     */
+    "max_depth_from_focus": 0,
+
     /* DEBUG OPTIONS ------------------------------------------------ */
 
     /*

@@ -124,6 +124,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         column_width_factor = settings.get('list_column_width_factor', 1.1)
         sort_key_name = settings.get('list_sort_key', 'name')
         focus_test_path = self.view.settings().get('focus_test_path')
+        max_depth_from_focus = settings.get('max_depth_from_focus', 0)
 
         # Now build the actual test list.
         tests_list = data.get_test_list()
@@ -133,11 +134,17 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
             focus_test_path = []
             self.view.settings().set('focus_test_path', focus_test_path)
 
+        if max_depth_from_focus != 0:
+            max_depth = self.item_depth(focus_test_path) + max_depth_from_focus
+        else:
+            max_depth = 0
+
         sort_key = (lambda c: c.discovery_id) if sort_key_name == 'discovery' else (lambda c: c.full_name)
         visible_tests, max_length = self.build_tests(tests_list,
                                                      focus_test_path,
                                                      sort_key,
                                                      visibility=visibility,
+                                                     max_depth=max_depth,
                                                      column_width_percentile=column_width_percentile,
                                                      column_width_factor=column_width_factor)
         structure['max_length'] = max_length
@@ -240,33 +247,36 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         return visibility[item.last_status.value]
 
     def item_depth(self, path: List[str]) -> int:
-        return len(path) - 1
+        return len(path)
 
-    def build_items(self, test_list: TestList, item: TestItem, focus_path : List[str], sort_key: Callable, visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
+    def build_items(self, test_list: TestList, item: TestItem, focus_path : List[str], sort_key: Callable, visibility=None, max_depth=0, hide_parent=False) -> List[Tuple[TestItem, str]]:
         lines = []
 
         if len(focus_path) != 0 and item.name != focus_path[0]:
             return lines
 
+        path = test_name_to_path(item.full_name)
+        depth = self.item_depth(path)
+        if max_depth != 0 and depth > max_depth:
+            return lines
+
         if item.children:
             if not hide_parent and self.item_is_visible(item, visibility=visibility):
-                path = test_name_to_path(item.full_name)
-                lines.append((item, self.build_item(item, depth=self.item_depth(path))))
+                lines.append((item, self.build_item(item, depth=depth)))
 
             children = [c for c in item.children.values()]
             children.sort(key=sort_key)
 
             for child in children:
-                lines += self.build_items(test_list, child, focus_path[1:], sort_key, visibility=visibility)
+                lines += self.build_items(test_list, child, focus_path[1:], sort_key, visibility=visibility, max_depth=max_depth)
         else:
             if not hide_parent and self.item_is_visible(item, visibility=visibility):
-                path = test_name_to_path(item.full_name)
-                lines.append((item, self.build_item(item, depth=self.item_depth(path))))
+                lines.append((item, self.build_item(item, depth=depth)))
 
         return lines
 
-    def build_item(self, item: TestItem, depth=0) -> str:
-        indent = '  ' * depth
+    def build_item(self, item: TestItem, depth=1) -> str:
+        indent = '  ' * (depth - 1 if depth >= 1 else 0)
         symbol = f'[{STATUS_SYMBOL[self.item_display_status(item)]}]'
         fold = '- ' if item.children is not None else '  '
         return f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{item.name}{END_OF_NAME_MARKER}'
@@ -296,8 +306,9 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         else:
             return f'{line}{padding} (last-run:{self.date_to_string(item.last_run)})'
 
-    def build_tests(self, test_list: TestList, focus_path: List[str], sort_key: Callable, visibility=None, column_width_percentile=1.0, column_width_factor=1.0):
-        lines = self.build_items(test_list, test_list.root, [ROOT_NAME] + focus_path, sort_key, visibility=visibility, hide_parent=True)
+    def build_tests(self, test_list: TestList, focus_path: List[str], sort_key: Callable, visibility=None, max_depth=0, column_width_percentile=1.0, column_width_factor=1.0):
+        lines = self.build_items(test_list, test_list.root, [ROOT_NAME] + focus_path, sort_key,
+            visibility=visibility, max_depth=max_depth, hide_parent=True)
         if len(lines) == 0:
             return [], 0
 
