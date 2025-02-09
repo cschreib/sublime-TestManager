@@ -14,7 +14,7 @@ from .list import TestExplorerTextCmd
 from .test_framework import TestFramework
 from .discover import NO_FRAMEWORK_CONFIGURED
 from .util import SettingsHelper
-from .test_data import TestData, TestList, TestItem, StartedRun, FinishedRun, test_name_to_path
+from .test_data import TestData, TestList, TestItem, StartedRun, FinishedRun, test_name_to_path, ROOT_NAME
 
 logger = logging.getLogger('TestExplorer.runner')
 
@@ -42,7 +42,7 @@ class TestRunHelper(SettingsHelper):
             test_paths = []
 
             def add_test(path: List[str], item: TestItem):
-                path = path + [item.name] if item.name != 'root' or len(path) > 0 else path
+                path = path + [item.name] if item.name != ROOT_NAME or len(path) > 0 else path
                 if item.children is not None:
                     for child in item.children.values():
                         add_test(path, child)

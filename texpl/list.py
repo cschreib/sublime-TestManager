@@ -10,7 +10,7 @@ from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, Event
 
 from .util import find_views_for_data, SettingsHelper, readable_date_delta
 from .helpers import TestDataHelper
-from .test_data import TestList, get_test_stats, TestItem, TestData, RunStatus, test_name_to_path
+from .test_data import ROOT_NAME, TestList, get_test_stats, TestItem, TestData, RunStatus, test_name_to_path, test_path_to_name
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -68,7 +68,7 @@ TEST_EXPLORER_HELP = f"""
 # Running:
 #    d = run test discovery
 #    s = run app/suite/case, S = run all tests
-#    backspace = stop tests
+#    k = stop tests
 #
 # Other:
 #    enter = open test file
@@ -81,6 +81,8 @@ TEST_EXPLORER_HELP = f"""
 #    p = toggle show/hide passed tests
 #    n = toggle show/hide new tests
 #    a = toggle show/hide all tests
+#    e = focus on test executable/suite
+#    backspace = focus on parent test executable/suite
 #
 # Legend:
 #    [{STATUS_SYMBOL['not_run']}] = not run
@@ -121,12 +123,19 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         column_width_percentile = settings.get('list_column_width_percentile', 0.95)
         column_width_factor = settings.get('list_column_width_factor', 1.1)
         sort_key_name = settings.get('list_sort_key', 'name')
+        focus_test_path = self.view.settings().get('focus_test_path')
 
         # Now build the actual test list.
         tests_list = data.get_test_list()
+        focus_test = tests_list.find_test(focus_test_path)
+        if focus_test is None:
+            focus_test = tests_list.root
+            focus_test_path = []
+            self.view.settings().set('focus_test_path', focus_test_path)
 
         sort_key = (lambda c: c.discovery_id) if sort_key_name == 'discovery' else (lambda c: c.full_name)
         visible_tests, max_length = self.build_tests(tests_list,
+                                                     focus_test_path,
                                                      sort_key,
                                                      visibility=visibility,
                                                      column_width_percentile=column_width_percentile,
@@ -196,12 +205,18 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         stats = data.get_global_test_stats()
         last_run = self.date_to_string(stats["last_run"], with_full=True)
         visibility = self.view.settings().get('visible_tests')
+        root_path = self.view.settings().get('focus_test_path')
+        if len(root_path) == 0:
+            root_path = '<all>'
+        else:
+            root_path = test_path_to_name(root_path)
 
         lines = []
         lines.append(f'Last discovery: {last_discovery}')
         lines.append(f'Last run:       {last_run}')
         lines.append(f'Tests status:   {self.stats_to_string(stats)}')
         lines.append(f'Showing:        {self.visible_to_string(visibility)}')
+        lines.append(f'Focus:          {root_path}')
 
         return lines
 
@@ -227,8 +242,11 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
     def item_depth(self, path: List[str]) -> int:
         return len(path) - 1
 
-    def build_items(self, test_list: TestList, item: TestItem, sort_key: Callable, visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
+    def build_items(self, test_list: TestList, item: TestItem, focus_path : List[str], sort_key: Callable, visibility=None, hide_parent=False) -> List[Tuple[TestItem, str]]:
         lines = []
+
+        if len(focus_path) != 0 and item.name != focus_path[0]:
+            return lines
 
         if item.children:
             if not hide_parent and self.item_is_visible(item, visibility=visibility):
@@ -239,7 +257,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
             children.sort(key=sort_key)
 
             for child in children:
-                lines += self.build_items(test_list, child, sort_key, visibility=visibility)
+                lines += self.build_items(test_list, child, focus_path[1:], sort_key, visibility=visibility)
         else:
             if not hide_parent and self.item_is_visible(item, visibility=visibility):
                 path = test_name_to_path(item.full_name)
@@ -278,8 +296,8 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         else:
             return f'{line}{padding} (last-run:{self.date_to_string(item.last_run)})'
 
-    def build_tests(self, test_list: TestList, sort_key: Callable, visibility=None, column_width_percentile=1.0, column_width_factor=1.0):
-        lines = self.build_items(test_list, test_list.root, sort_key, visibility=visibility, hide_parent=True)
+    def build_tests(self, test_list: TestList, focus_path: List[str], sort_key: Callable, visibility=None, column_width_percentile=1.0, column_width_factor=1.0):
+        lines = self.build_items(test_list, test_list.root, [ROOT_NAME] + focus_path, sort_key, visibility=visibility, hide_parent=True)
         if len(lines) == 0:
             return [], 0
 
@@ -425,6 +443,7 @@ class TestExplorerListCommand(WindowCommand, TestDataHelper):
 
             view.settings().set('test_view', 'list')
             view.settings().set('visible_tests', TEST_EXPLORER_DEFAULT_VISIBILITY)
+            view.settings().set('focus_test_path', [])
             view.settings().set('test_data_full_path', data_location)
             view.settings().set('tab_size', 2)
 
@@ -566,15 +585,15 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
             logger.error('error building test list: {}'.format(str(e)))
             raise
 
-    def run(self, edit, no_scroll=False, hints=[]):
+    def run(self, edit, no_scroll=False, hints=[], goto=None):
         data = self.get_test_data()
         if not data:
             return
 
-        goto = None
-        selected = self.get_selected_item()
-        if selected:
-            goto = f'item:{selected}'
+        if goto is None:
+            selected = self.get_selected_item()
+            if selected:
+                goto = f'item:{selected}'
 
         sublime.set_timeout(partial(self.refresh, data, goto, no_scroll, hints))
 
@@ -662,3 +681,36 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
                 window.open_file(location, sublime.ENCODED_POSITION | sublime.TRANSIENT)
             else:
                 window.open_file(location, sublime.ENCODED_POSITION)
+
+
+class TestExplorerSetRootCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
+
+    def is_visible(self):
+        return False
+
+    def run(self, edit, parent : Optional[bool] = None):
+        data = self.get_test_data()
+        if not data:
+            return
+
+        project = self.get_project()
+        if not project:
+            return
+
+        if parent is not None:
+            current_root = self.view.settings().get('focus_test_path')
+            if len(current_root) == 0:
+                return
+
+            current_root.pop()
+            self.view.settings().set('focus_test_path', current_root)
+            goto = None
+        else:
+            tests = self.get_selected_folders()
+            if len(tests) != 1:
+                return
+
+            self.view.settings().set('focus_test_path', test_name_to_path(tests[0]))
+            goto = 'list-top'
+
+        self.view.run_command('test_explorer_refresh', {'goto': goto})

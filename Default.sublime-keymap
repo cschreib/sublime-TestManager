@@ -8,12 +8,6 @@
     },
 
     // Display
-    { "keys": ["W"], "command": "test_explorer_toggle_fold", "args": {"start": "all"},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
-    },
-    { "keys": ["w"], "command": "test_explorer_toggle_fold", "args": {"fold": "item"},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line" }]
-    },
     { "keys": ["f"], "command": "test_explorer_toggle_show", "args": {"toggle": "failed"},
         "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
     },
@@ -27,6 +21,12 @@
         "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
     },
     { "keys": ["a"], "command": "test_explorer_toggle_show", "args": {"toggle": "all"},
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    },
+    { "keys": ["e"], "command": "test_explorer_set_root",
+        "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line" }]
+    },
+    { "keys": ["backspace"], "command": "test_explorer_set_root", "args": {"parent": true},
         "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
     },
 
@@ -49,7 +49,7 @@
     { "keys": ["s"], "command": "test_explorer_start_selected",
         "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line"}]
     },
-    { "keys": ["backspace"], "command": "test_explorer_stop",
+    { "keys": ["k"], "command": "test_explorer_stop",
         "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]
     },
 ]

@@ -128,6 +128,17 @@ contexts:
         - match: \n
           pop: true
 
+    - match: '^Focus:\s+'
+      scope: comment.test-explorer.header.focus
+      push:
+        - match: '<all>\n'
+          scope: comment.test-explorer.header.all-tests
+          pop: true
+        - match: '/'
+          scope: punctuation.section.list.test-explorer.separator
+        - match: \n
+          pop: true
+
   status-marker:
     - match: \[X\]
       scope: string.other.test-explorer.status-marker.failed
@@ -176,7 +187,7 @@ contexts:
         - match: ^(?!\n)\s*
           push:
             - match: \-
-              scope: punctuation.section.list.test-explorer.fold-marker
+              scope: punctuation.section.generic.test-explorer.fold-marker
               set: [parenthesized-test-stats, node, status-marker]
             - match: (?=\[)
               set: [parenthesized-test-stats, leaf, status-marker]

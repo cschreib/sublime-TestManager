@@ -13,6 +13,7 @@ from contextlib import closing
 
 import sublime
 
+ROOT_NAME = ''
 TEST_SEPARATOR = '/'
 MIN_REFRESH_INTERVAL = 0.1 # seconds
 
@@ -272,7 +273,7 @@ def get_test_stats(item: TestItem):
 class TestList:
     def __init__(self, location: str):
         self.location = location
-        self.root = TestItem(name='root', full_name='root', children={})
+        self.root = TestItem(name=ROOT_NAME, full_name=ROOT_NAME, children={})
         self.run_id_lookup = {}
         self.test_output_buffer = {}
 

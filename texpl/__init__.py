@@ -9,7 +9,7 @@ from .util import TestExplorerPanelWriteCommand, TestExplorerPanelAppendCommand
 
 from .list import (TestExplorerListCommand, TestExplorerRefreshAllCommand, TestExplorerRefreshCommand,
                    TestExplorerReplaceCommand, TestExplorerPartialReplaceCommand, TestExplorerToggleShowCommand,
-                   TestExplorerOpenFile, TestExplorerEventListener)
+                   TestExplorerOpenFile, TestExplorerEventListener, TestExplorerSetRootCommand)
 
 from .output import (TestExplorerOpenSelectedOutput, TestExplorerOpenSingleOutput, TestExplorerOpenRunOutput,
                      TestExplorerOutputRefresh, TestExplorerOutputRefreshAllCommand, TestExplorerOutputEventListener)
