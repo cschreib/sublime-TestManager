@@ -594,23 +594,25 @@ class TestData:
 
         while not stop_token.is_set():
             try:
-                refresh_hints = self.refresh_list_queue.get(timeout=0.05)
-                for hint in refresh_hints:
-                    accumulated_hints.add(hint)
+                while not stop_token.is_set():
+                    refresh_hints = self.refresh_list_queue.get(block=False)
+                    for hint in refresh_hints:
+                        accumulated_hints.add(hint)
             except:
                 pass
 
             try:
-                accumulated_tests_with_output.add(self.refresh_output_queue.get(timeout=0.05))
+                while not stop_token.is_set():
+                    accumulated_tests_with_output.add(self.refresh_output_queue.get(block=False))
             except:
                 pass
 
             now = time.time()
             if last_refresh is None or now - last_refresh > MIN_REFRESH_INTERVAL:
-                sublime.set_timeout(partial(self.refresh_views_now, list(accumulated_hints)))
+                self.refresh_views_now(list(accumulated_hints))
 
                 for test in accumulated_tests_with_output:
-                    sublime.set_timeout(partial(self.refresh_output_views_now, test))
+                    self.refresh_output_views_now(test)
 
                 last_refresh = now
                 accumulated_hints = set()
