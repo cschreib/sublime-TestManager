@@ -716,7 +716,7 @@ class TestData:
 
             assert self.refresh_thread is not None
             self.stop_refresh_thread.set()
-            self.refresh_thread.join()
+            self.refresh_thread.join(timeout=2)
 
         self.commit(meta=self.meta, tests=self.tests)
 
