@@ -75,7 +75,7 @@ def test_name_to_path(name: str):
 def test_path_to_name(path: List[str]):
     return TEST_SEPARATOR.join(path)
 
-def parents_in_path(path: List[str]):
+def parent_names_in_path(path: List[str]):
     return [test_path_to_name(path[:i]) for i in range(1, len(path))]
 
 
@@ -394,7 +394,7 @@ class TestList:
 
         return parent
 
-    def update_parent_status(self, item_path: List[str]):
+    def update_compound_status(self, item_path: List[str]):
         parent = self.root
         parents = []
         for p in item_path:
@@ -407,12 +407,13 @@ class TestList:
             parents.append(parent)
             parent = parent.children[p]
 
+        parents.append(parent)
         parents.reverse()
 
         for parent in parents:
             parent.recompute_status()
 
-    def update_parent_statuses(self):
+    def update_compound_statuses(self):
         def recompute(item: TestItem):
             if item.children is None:
                 return
@@ -555,7 +556,7 @@ class TestData:
             for item in self.tests.tests():
                 item.notify_run_stopped()
 
-            self.tests.update_parent_statuses()
+            self.tests.update_compound_statuses()
             self.commit(meta=self.meta, tests=self.tests, no_refresh=True)
 
     def is_initialised(self):
@@ -674,7 +675,7 @@ class TestData:
                     item.update_from_discovered(test)
 
                 new_tests.update_test(test.full_name, item)
-                new_tests.update_parent_status(test.full_name)
+                new_tests.update_compound_status(test.full_name[:-1])
 
         self.commit(meta=self.meta, tests=new_tests)
 
@@ -685,13 +686,17 @@ class TestData:
             self.meta.running = True
             self.stop_tests_event = threading.Event()
 
+            update_list = set()
             for path in run.tests:
                 item = self.tests.find_test(path)
                 if not item:
                     raise Exception('Unknown test "{}"'.format(test_path_to_name(path)))
 
                 item.notify_run_queued()
-                self.tests.update_parent_status(path)
+                update_list = update_list.union(parent_names_in_path(path))
+
+            for path in update_list:
+                self.tests.update_compound_status(test_name_to_path(path))
 
             self.stop_refresh_thread = threading.Event()
             self.refresh_list_queue = queue.Queue()
@@ -706,13 +711,17 @@ class TestData:
         with self.mutex:
             self.meta.running = False
 
+            update_list = set()
             for path in run.tests:
                 item = self.tests.find_test(path)
                 if not item:
                     raise Exception('Unknown test "{}"'.format(test_path_to_name(path)))
 
                 item.notify_run_stopped()
-                self.tests.update_parent_status(path)
+                update_list = update_list.union(parent_names_in_path(path))
+
+            for path in update_list:
+                self.tests.update_compound_status(test_name_to_path(path))
 
             assert self.refresh_thread is not None
             self.stop_refresh_thread.set()
@@ -734,13 +743,13 @@ class TestData:
             if self.last_test_finished is not None:
                 # Update parents of last tests now, rather than in notify_test_finished().
                 # This prevents status flicker.
-                self.tests.update_parent_status(self.last_test_finished)
-                refresh_hints += parents_in_path(self.last_test_finished)
+                self.tests.update_compound_status(self.last_test_finished[:-1])
+                refresh_hints += parent_names_in_path(self.last_test_finished)
                 self.last_test_finished = None
 
-            self.tests.update_parent_status(test.full_name)
+            self.tests.update_compound_status(test.full_name[:-1])
             self.tests.clear_test_output(test.full_name)
-            refresh_hints += parents_in_path(test.full_name)
+            refresh_hints += parent_names_in_path(test.full_name)
 
         self.refresh_output_views_now(test_path_to_name(test.full_name))
         self.commit(tests=self.tests, refresh_hints=refresh_hints)
