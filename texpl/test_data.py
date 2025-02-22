@@ -18,47 +18,26 @@ TEST_SEPARATOR = '/'
 MIN_REFRESH_INTERVAL = 0.1 # seconds
 
 class TestStatus(enum.Enum):
-    PASSED = 'passed'
-    FAILED = 'failed'
-    CRASHED = 'crashed'
-    STOPPED = 'stopped'
-    SKIPPED = 'skipped'
-    NOT_RUN = 'not_run'
+    # Must be sorted by priority
+    NOT_RUN = 0
+    STOPPED = 1
+    SKIPPED = 2
+    PASSED = 3
+    FAILED = 4
+    CRASHED = 5
 
 
 class RunStatus(enum.Enum):
-    NOT_RUNNING = 'not_running'
-    RUNNING = 'running'
-    QUEUED = 'queued'
+    # Must be sorted by priority
+    NOT_RUNNING = 0
+    QUEUED = 1
+    RUNNING = 2
 
-
-STATUS_PRIORITY = {
-    None: -1,
-    TestStatus.NOT_RUN: 0,
-    TestStatus.STOPPED: 1,
-    TestStatus.SKIPPED: 2,
-    TestStatus.PASSED: 3,
-    TestStatus.FAILED: 4,
-    TestStatus.CRASHED: 5
-}
-
-RUN_STATUS_PRIORITY = {
-    None: -1,
-    RunStatus.NOT_RUNNING: 0,
-    RunStatus.QUEUED: 1,
-    RunStatus.RUNNING: 2
-}
 
 DB_FILE = 'tests.sqlite3'
 
 logger = logging.getLogger('TestExplorer.test_data')
 
-
-def status_merge(status1, status2):
-    return status1 if STATUS_PRIORITY[status1] > STATUS_PRIORITY[status2] else status2
-
-def run_status_merge(status1, status2):
-    return status1 if RUN_STATUS_PRIORITY[status1] > RUN_STATUS_PRIORITY[status2] else status2
 
 def date_from_db(data: Optional[str]) -> Optional[datetime]:
     if data is None:
@@ -177,8 +156,8 @@ class TestItem:
             self.location.executable if self.location is not None else None,
             self.location.file if self.location is not None else None,
             self.location.line if self.location is not None else None,
-            self.last_status.value,
-            self.run_status.value,
+            self.last_status.name.lower(),
+            self.run_status.name.lower(),
             self.last_run,
             self.children is None))
 
@@ -228,22 +207,14 @@ class TestItem:
         if self.children is None:
             return
 
-        new_status = TestStatus.NOT_RUN
-        for child in self.children.values():
-            new_status = status_merge(new_status, child.last_status)
-
-        new_run_status = RunStatus.NOT_RUNNING
-        for child in self.children.values():
-            new_run_status = run_status_merge(new_run_status, child.run_status)
-
-        self.last_status = new_status
-        self.run_status = new_run_status
+        self.last_status = TestStatus(max([c.last_status.value for c in self.children.values()]))
+        self.run_status = RunStatus(max([c.run_status.value for c in self.children.values()]))
 
 
 def get_test_stats(item: TestItem):
     def add_one_to_stats(stats: Dict, item: TestItem):
-        stats[item.last_status.value] += 1
-        stats[item.run_status.value] += 1
+        stats[item.last_status.name.lower()] += 1
+        stats[item.run_status.name.lower()] += 1
         stats['total'] += 1
         if item.last_run is not None:
             if stats['last_run'] is not None:
@@ -261,10 +232,10 @@ def get_test_stats(item: TestItem):
     stats = {'total': 0, 'last_run': None}
 
     for status in TestStatus:
-        stats[status.value] = 0
+        stats[status.name.lower()] = 0
 
     for status in RunStatus:
-        stats[status.value] = 0
+        stats[status.name.lower()] = 0
 
     add_to_stats(stats, item)
     return stats

@@ -229,9 +229,9 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
     def item_display_status(self, item: TestItem) -> str:
         if item.run_status != RunStatus.NOT_RUNNING:
-            return item.run_status.value
+            return item.run_status.name.lower()
         else:
-            return item.last_status.value
+            return item.last_status.name.lower()
 
     def item_is_visible(self, item: TestItem, visibility=None) -> bool:
         if not visibility:
@@ -244,7 +244,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
             # Always show running tests
             return True
 
-        return visibility[item.last_status.value]
+        return visibility[item.last_status.name.lower()]
 
     def item_depth(self, path: List[str]) -> int:
         return len(path)
