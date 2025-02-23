@@ -4,7 +4,7 @@ import logging
 from typing import Dict, List, Optional
 
 from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, status_merge, TestOutput
+from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
 from ..cmd import Cmd
 
 PYTEST_PLUGIN_PATH = 'pytest_plugins'
@@ -60,7 +60,9 @@ class OutputParser:
                 return
             self.test_data.notify_test_output(TestOutput(self.current_test, data['content']))
         else:
-            self.current_status = status_merge(self.current_status, PYTEST_STATUS_MAP[data['status']])
+            if self.current_status is None:
+                self.current_status = TestStatus.NOT_RUN
+            self.current_status = TestStatus(max(self.current_status.value, PYTEST_STATUS_MAP[data['status']].value))
 
 
 def get_os_python_path():
