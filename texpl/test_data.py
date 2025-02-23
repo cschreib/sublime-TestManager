@@ -1,21 +1,16 @@
 import os
 import logging
 import time
-import queue
 import copy
 import enum
 import threading
 from datetime import datetime
 from typing import Optional, List, Dict, Set
-from functools import partial
 import sqlite3
 from contextlib import closing
 
-import sublime
-
 ROOT_NAME = ''
 TEST_SEPARATOR = '/'
-MIN_REFRESH_INTERVAL = 0.1 # seconds
 MIN_COMMIT_INTERVAL = 0.5 # seconds
 
 class TestStatus(enum.Enum):
@@ -508,10 +503,6 @@ class TestData:
         self.stats: Optional[dict] = None
         self.last_test_finished: Optional[List[str]] = None
         self.stop_tests_event = threading.Event()
-        self.refresh_thread: Optional[threading.Thread] = None
-        self.stop_refresh_thread = threading.Event()
-        self.refresh_list_queue = queue.Queue()
-        self.refresh_output_queue = queue.Queue()
         self.test_output_buffer = ''
         self.last_commit_time: Optional[float] = None
         self.tests_refresh_hints: Set[List[str]] = set()
@@ -531,7 +522,7 @@ class TestData:
                 item.notify_run_stopped()
 
             self.tests.update_compound_statuses()
-            self.commit(meta=self.meta, tests=self.tests, no_refresh=True)
+            self.commit(meta=self.meta, tests=self.tests)
 
     def is_initialised(self):
         return TestMetaData.is_initialised(self.location) and TestList.is_initialised(self.location)
@@ -552,52 +543,7 @@ class TestData:
         self.meta_updated = True
         self.commit(meta=TestMetaData(self.location), tests=TestList(self.location))
 
-    def refresh_views(self, refresh_hints=[]):
-        if self.is_running_tests() and len(refresh_hints) > 0:
-            self.refresh_list_queue.put(refresh_hints)
-        else:
-            self.refresh_views_now(refresh_hints=refresh_hints)
-
-    def refresh_views_now(self, refresh_hints=[]):
-        logger.debug(f'refreshing views for {self.location}')
-        sublime.run_command('test_explorer_refresh_all', {'data_location': self.location, 'hints': refresh_hints})
-
-    def refresh_output_views_now(self, test: str):
-        logger.debug(f'refreshing output views for {test}')
-        sublime.run_command('test_explorer_output_refresh_all', {'data_location': self.location, 'test': test})
-
-    def refresh_views_continuously(self, stop_token):
-        accumulated_hints = set()
-        accumulated_tests_with_output = set()
-        last_refresh: Optional[float] = None
-
-        while not stop_token.is_set():
-            try:
-                while not stop_token.is_set():
-                    refresh_hints = self.refresh_list_queue.get(block=False)
-                    for hint in refresh_hints:
-                        accumulated_hints.add(hint)
-            except:
-                pass
-
-            try:
-                while not stop_token.is_set():
-                    accumulated_tests_with_output.add(self.refresh_output_queue.get(block=False))
-            except:
-                pass
-
-            now = time.time()
-            if last_refresh is None or now - last_refresh > MIN_REFRESH_INTERVAL:
-                self.refresh_views_now(list(accumulated_hints))
-
-                for test in accumulated_tests_with_output:
-                    self.refresh_output_views_now(test)
-
-                last_refresh = now
-                accumulated_hints = set()
-                accumulated_tests_with_output = set()
-
-    def commit(self, meta=None, tests=None, refresh_hints=[], no_refresh=False, buffered=False):
+    def commit(self, meta=None, tests=None, refresh_hints=[], buffered=False):
         with self.mutex:
             try:
                 if meta is not None:
@@ -633,9 +579,6 @@ class TestData:
             except Exception as e:
                 logger.error(f'error during commit: {e}')
                 raise
-
-        if not no_refresh and (meta is not None or tests is not None):
-            self.refresh_views(refresh_hints=refresh_hints)
 
     def get_test_list(self) -> TestList:
         with self.mutex:
@@ -697,11 +640,6 @@ class TestData:
             for path in update_list:
                 self.tests.update_compound_status(test_name_to_path(path))
 
-            self.stop_refresh_thread = threading.Event()
-            self.refresh_list_queue = queue.Queue()
-            self.refresh_thread = threading.Thread(target=partial(self.refresh_views_continuously, self.stop_refresh_thread))
-            self.refresh_thread.start()
-
         self.commit(meta=self.meta, tests=self.tests)
 
     def notify_run_finished(self, run: FinishedRun):
@@ -721,10 +659,6 @@ class TestData:
 
             for path in update_list:
                 self.tests.update_compound_status(test_name_to_path(path))
-
-            assert self.refresh_thread is not None
-            self.stop_refresh_thread.set()
-            self.refresh_thread.join(timeout=2)
 
         self.commit(meta=self.meta, tests=self.tests)
 
@@ -750,14 +684,11 @@ class TestData:
             self.tests.clear_test_output(test.full_name)
             refresh_hints += parent_names_in_path(test.full_name)
 
-        self.refresh_output_views_now(test_path_to_name(test.full_name))
         self.commit(tests=self.tests, refresh_hints=refresh_hints, buffered=True)
 
     def notify_test_output(self, test: TestOutput):
         with self.mutex:
             self.tests.add_test_output(test.full_name, test.output)
-
-        self.refresh_output_queue.put(test_path_to_name(test.full_name))
 
     def notify_test_finished(self, test: FinishedTest):
         logger.info('finished {}'.format(test_path_to_name(test.full_name)))
@@ -773,5 +704,4 @@ class TestData:
             self.last_test_finished = test.full_name
             self.tests.flush_test_output(test.full_name)
 
-        self.refresh_output_views_now(test_path_to_name(test.full_name))
         self.commit(tests=self.tests, refresh_hints=refresh_hints, buffered=True)

@@ -31,6 +31,12 @@
      */
     "max_depth_from_focus": 0,
 
+    /*
+     * Refresh rate of the test list view, in seconds. Reduce this for more real-time display
+     * of test results. Increase this if SublimeText becomes too sluggish during test runs.
+     */
+    "view_refresh_interval": 0.1,
+
     /* DEBUG OPTIONS ------------------------------------------------ */
 
     /*

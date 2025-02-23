@@ -36,8 +36,18 @@ class TestRunHelper(SettingsHelper):
         root_dir = os.path.dirname(project)
         return [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
 
+    def refresh_loop(self):
+        if not self.running:
+            return
+
+        sublime.run_command('test_explorer_refresh_all', {'data_location': self.data_location})
+
+        sublime.set_timeout(self.refresh_loop, self.refresh_interval)
+
     def run_tests(self, data: TestData, test_list: TestList, frameworks: List[TestFramework], tests: List[str]):
         try:
+            settings = self.get_settings()
+            self.refresh_interval = settings.get('view_refresh_interval', 0.1) * 1000
             test_ids = {}
             test_paths = []
 
@@ -61,10 +71,16 @@ class TestRunHelper(SettingsHelper):
 
                 add_test(path[:-1], item)
 
-            logger.debug(f'collected {len(test_paths)} tests')
+            logger.info(f'collected {len(test_paths)} tests')
             start = time.time()
 
             data.notify_run_started(StartedRun(test_paths))
+            sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})
+
+            self.running = True
+            self.data_location = data.location
+            sublime.set_timeout(self.refresh_loop, self.refresh_interval)
+
             try:
                 for framework_id, grouped_tests in test_ids.items():
                     logger.debug(f'running {len(grouped_tests)} tests for {framework_id}...')
@@ -77,9 +93,11 @@ class TestRunHelper(SettingsHelper):
                     logger.debug(f'done.')
             finally:
                 data.notify_run_finished(FinishedRun(test_paths))
+                self.running = False
+                sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})
 
             end = time.time()
-            logger.debug(f'test run duration: {end - start}')
+            logger.info(f'test run duration: {end - start}')
 
         except Exception as e:
             logger.error("error when running tests: %s\n%s", e, traceback.format_exc())
@@ -151,7 +169,6 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
 
     def run_one_test(self, data: TestData, test_list: TestList, frameworks: List[TestFramework], choices: List[str], test_id: int):
         sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, [choices[test_id]]))
-
 
 
 class TestExplorerStopCommand(WindowCommand, TestDataHelper):

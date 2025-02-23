@@ -48,6 +48,7 @@ class TestExplorerResetCommand(WindowCommand, TestDataHelper):
                 return
 
             data.init()
+            sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})
 
 
 class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper, Cmd):
@@ -118,3 +119,4 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper,
             disc_id += 1
 
         data.notify_discovered_tests(discovered_tests, discovery_time=start)
+        sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})

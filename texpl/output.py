@@ -4,7 +4,7 @@ from functools import partial
 from typing import List
 
 import sublime
-from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, EventListener
+from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, ViewEventListener
 
 from .helpers import TestDataHelper
 from .util import SettingsHelper, find_views_for_test
@@ -86,6 +86,11 @@ class TestExplorerOpenRunOutput(WindowCommand, TestDataHelper):
             views[0].window().focus_view(views[0])
             views[0].window().bring_to_front()
 
+            refresh_interval = self.get_setting('output_refresh_interval', 0.1) * 1000
+
+            views[0].run_command('test_explorer_output_refresh')
+            sublime.set_timeout(partial(refresh_loop, views[0], refresh_interval), refresh_interval)
+
 
 class TestExplorerOutputRefresh(TextCommand, TestDataHelper):
 
@@ -124,8 +129,29 @@ class TestExplorerOutputRefreshAllCommand(ApplicationCommand, TestDataHelper):
             view.run_command('test_explorer_output_refresh')
 
 
-class TestExplorerOutputEventListener(EventListener, SettingsHelper):
+def refresh_loop(view, refresh_interval):
+    if view.window() is None or view.window().active_view() is None or view.id() != view.window().active_view().id():
+        return
 
-    def on_activated(self, view):
-        if view.settings().get('test_view') == 'output' and self.get_setting('explorer_update_on_focus', True):
-            view.run_command('test_explorer_output_refresh')
+    view.run_command('test_explorer_output_refresh')
+    sublime.set_timeout(partial(refresh_loop, view, refresh_interval), refresh_interval)
+
+
+class TestExplorerOutputEventListener(ViewEventListener, SettingsHelper):
+
+    def __init__(self, view):
+        self.view = view
+
+    @classmethod
+    def is_applicable(cls, settings):
+        return settings.get('test_view') == 'output'
+
+    def on_activated(self):
+        if self.get_setting('explorer_update_on_focus', True):
+            refresh_interval = self.get_setting('output_refresh_interval', 0.1) * 1000
+
+            self.view.run_command('test_explorer_output_refresh')
+            sublime.set_timeout(partial(refresh_loop, self.view, refresh_interval), refresh_interval)
+
+
+
