@@ -108,10 +108,17 @@ class TestExplorerOutputRefresh(TextCommand, TestDataHelper):
         test_list = data.get_test_list()
         output = test_list.get_test_output(test_name_to_path(test))
 
+        old_content = self.view.substr(sublime.Region(0, self.view.size()))
+
         self.view.set_read_only(False)
-        self.view.replace(edit, sublime.Region(0, self.view.size()), output)
+
+        if output.startswith(old_content):
+            self.view.insert(edit, self.view.size(), output[len(old_content):])
+        else:
+            self.view.replace(edit, sublime.Region(0, self.view.size()), output)
+            self.view.sel().clear()
+
         self.view.set_read_only(True)
-        self.view.sel().clear()
 
         autoscroll = self.get_setting('explorer_output_auto_scroll', True) is True
         if autoscroll:
