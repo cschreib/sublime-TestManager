@@ -6,7 +6,7 @@ import copy
 import enum
 import threading
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Set
 from functools import partial
 import sqlite3
 from contextlib import closing
@@ -16,6 +16,7 @@ import sublime
 ROOT_NAME = ''
 TEST_SEPARATOR = '/'
 MIN_REFRESH_INTERVAL = 0.1 # seconds
+MIN_COMMIT_INTERVAL = 0.5 # seconds
 
 class TestStatus(enum.Enum):
     # Must be sorted by priority
@@ -512,6 +513,8 @@ class TestData:
         self.refresh_list_queue = queue.Queue()
         self.refresh_output_queue = queue.Queue()
         self.test_output_buffer = ''
+        self.last_commit_time: Optional[float] = None
+        self.tests_refresh_hints: Set[List[str]] = set()
 
         if not self.is_initialised():
             self.init()
@@ -536,13 +539,17 @@ class TestData:
     def load(self):
         try:
             self.tests = TestList.from_location(self.location)
+            self.tests_updated = False
             self.meta = TestMetaData.from_location(self.location)
+            self.meta_updated = False
         except Exception as e:
             logger.error(f'error during load: {e}')
             raise
 
     def init(self):
         clear_test_data(self.location)
+        self.tests_updated = True
+        self.meta_updated = True
         self.commit(meta=TestMetaData(self.location), tests=TestList(self.location))
 
     def refresh_views(self, refresh_hints=[]):
@@ -590,18 +597,39 @@ class TestData:
                 accumulated_hints = set()
                 accumulated_tests_with_output = set()
 
-    def commit(self, meta=None, tests=None, refresh_hints=[], no_refresh=False):
+    def commit(self, meta=None, tests=None, refresh_hints=[], no_refresh=False, buffered=False):
         with self.mutex:
-            # TODO: put this into the cmd for the 'data' queue
             try:
                 if meta is not None:
                     self.meta = meta
-                    self.meta.save()
+                    self.meta_updated = True
 
                 if tests is not None:
                     self.tests = tests
                     self.stats = None
-                    self.tests.save(refresh_hints=refresh_hints)
+                    self.tests_updated = True
+
+                now = time.time()
+
+                if len(refresh_hints) == 0:
+                    self.tests_refresh_hints = set()
+                    self.tests_updated_all = True
+                elif not self.tests_updated_all:
+                    self.tests_refresh_hints = self.tests_refresh_hints.union(refresh_hints)
+
+                if not buffered or self.last_commit_time is None or now - self.last_commit_time > MIN_COMMIT_INTERVAL:
+                    if self.meta_updated:
+                        self.meta.save()
+                        self.meta_updated = False
+
+                    if self.tests_updated:
+                        self.tests.save(refresh_hints=self.tests_refresh_hints)
+                        self.tests_updated = False
+                        self.tests_updated_all = False
+                        self.tests_refresh_hints = set()
+
+                    self.last_commit_time = now
+
             except Exception as e:
                 logger.error(f'error during commit: {e}')
                 raise
@@ -723,7 +751,7 @@ class TestData:
             refresh_hints += parent_names_in_path(test.full_name)
 
         self.refresh_output_views_now(test_path_to_name(test.full_name))
-        self.commit(tests=self.tests, refresh_hints=refresh_hints)
+        self.commit(tests=self.tests, refresh_hints=refresh_hints, buffered=True)
 
     def notify_test_output(self, test: TestOutput):
         with self.mutex:
@@ -746,4 +774,4 @@ class TestData:
             self.tests.flush_test_output(test.full_name)
 
         self.refresh_output_views_now(test_path_to_name(test.full_name))
-        self.commit(tests=self.tests, refresh_hints=refresh_hints)
+        self.commit(tests=self.tests, refresh_hints=refresh_hints, buffered=True)
