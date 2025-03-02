@@ -40,31 +40,44 @@ SECTION_SELECTOR_PREFIX = 'meta.test-explorer.'
 
 END_OF_NAME_MARKER = '\u200B'
 
-STATUS_SYMBOL = {
-    'not_run': '_',
-    'failed':  'X',
+STATUS_MARKER = {
+    'not_run': '\u200b\u200b',
+    'failed':  '\u200b\u200c',
+    'crashed': '\u200b\u200d',
+    'stopped': '\u200b\u2060',
+    'skipped': '\u200b\ufeff',
+    'passed':  '\u200c\u200b',
+    'running': '\u200c\u200c',
+    'queued':  '\u200c\u200d'
+}
+
+DEFAULT_STATUS_SYMBOL = {
+    'not_run': ' ',
+    'failed':  '#',
     'crashed': '!',
     'stopped': '?',
-    'skipped': 'S',
-    'passed':  '✓',
-    'running': 'R',
-    'queued':  'Q'
+    'skipped': '/',
+    'passed':  '.',
+    'running': '@',
+    'queued':  ':'
 }
 
 STATUS_NAME = {
     'not_run': 'not-run',
     'failed':  'failed',
-    'crashed':  'crashed',
-    'stopped':  'stopped',
+    'crashed': 'crashed',
+    'stopped': 'stopped',
     'skipped': 'skipped',
     'passed':  'passed',
-    'total':  'total'
+    'running': 'running',
+    'queued':  'queued',
+    'total':   'total'
 }
 
 NO_TESTS_FOUND = "No test found. Press 'd' to run discovery."
 NO_TESTS_VISIBLE = "No test to show with the current filters."
 
-TEST_EXPLORER_HELP = f"""
+TEST_EXPLORER_HELP = """
 # Running:
 #    d = run test discovery
 #    s = run app/suite/case, S = run all tests
@@ -84,16 +97,7 @@ TEST_EXPLORER_HELP = f"""
 #    e = focus on test executable/suite
 #    backspace = focus on parent test executable/suite
 #
-# Legend:
-#    [{STATUS_SYMBOL['not_run']}] = not run
-#    [{STATUS_SYMBOL['queued']}] = queued
-#    [{STATUS_SYMBOL['stopped']}] = stopped
-#    [{STATUS_SYMBOL['running']}] = running
-#    [{STATUS_SYMBOL['skipped']}] = skipped
-#    [{STATUS_SYMBOL['failed']}] = failed
-#    [{STATUS_SYMBOL['crashed']}] = crashed
-#    [{STATUS_SYMBOL['passed']}] = passed
-"""
+# Legend:"""
 
 class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
@@ -125,6 +129,8 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         sort_key_name = settings.get('list_sort_key', 'name')
         focus_test_path = self.view.settings().get('focus_test_path')
         max_depth_from_focus = settings.get('max_depth_from_focus', 0)
+        self.status_symbol = DEFAULT_STATUS_SYMBOL
+        self.status_symbol.update(settings.get('status_symbol', {}))
 
         # Now build the actual test list.
         tests_list = data.get_test_list()
@@ -173,6 +179,9 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
             for line in TEST_EXPLORER_HELP.split('\n'):
                 add_line(line)
 
+            for status_id in ['not_run', 'stopped', 'queued', 'running', 'skipped', 'failed', 'crashed', 'passed']:
+                add_line(f"#    [{STATUS_MARKER[status_id]}{self.status_symbol[status_id]}] = {STATUS_NAME[status_id]}")
+
         return status, structure
 
     def update_list(self, data: TestData, structure: dict, hint: List[str]) -> List[Tuple[int, str]]:
@@ -181,6 +190,11 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         def add_line(line: int, content: str):
             nonlocal lines
             lines.append((line, content))
+
+        # Fetch settings.
+        settings = self.get_settings()
+        self.status_symbol = DEFAULT_STATUS_SYMBOL
+        self.status_symbol.update(settings.get('status_symbol', {}))
 
         # Already rebuild the header; it's cheap and changes all the time anyway.
         line_count = 0
@@ -277,7 +291,8 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
     def build_item(self, item: TestItem, depth=1) -> str:
         indent = '  ' * (depth - 1 if depth >= 1 else 0)
-        symbol = f'[{STATUS_SYMBOL[self.item_display_status(item)]}]'
+        status_id = self.item_display_status(item)
+        symbol = f'[{STATUS_MARKER[status_id]}{self.status_symbol[status_id]}]'
         fold = '- ' if item.children is not None else '  '
         return f'  {indent}{fold}{symbol} {END_OF_NAME_MARKER}{item.name}{END_OF_NAME_MARKER}'
 

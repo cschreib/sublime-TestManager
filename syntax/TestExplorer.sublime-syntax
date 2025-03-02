@@ -140,28 +140,28 @@ contexts:
           pop: true
 
   status-marker:
-    - match: \[X\]
+    - match: \[​‌.\]
       scope: string.other.test-explorer.status-marker.failed
       pop: true
-    - match: \[!\]
+    - match: \[​‍.\]
       scope: string.other.test-explorer.status-marker.crashed
       pop: true
-    - match: \[\?\]
+    - match: \[​⁠.\]
       scope: string.other.test-explorer.status-marker.stopped
       pop: true
-    - match: \[S\]
+    - match: \[​﻿.\]
       scope: string.other.test-explorer.status-marker.skipped
       pop: true
-    - match: \[\✓\]
+    - match: \[‌​.\]
       scope: string.other.test-explorer.status-marker.passed
       pop: true
-    - match: \[\_\]
+    - match: \[​​.\]
       scope: string.other.test-explorer.status-marker.not-run
       pop: true
-    - match: \[R\]
+    - match: \[‌‌.\]
       scope: string.other.test-explorer.status-marker.running
       pop: true
-    - match: \[Q\]
+    - match: \[‌‍.\]
       scope: string.other.test-explorer.status-marker.queued
       pop: true
 

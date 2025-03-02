@@ -37,6 +37,23 @@
      */
     "view_refresh_interval": 0.1,
 
+    /*
+     * Symbols shown in the test list for a given test status. These can be any single character.
+     * It is OK to reuse the same character multiple times, if you don't care about the distinction
+     * (e.g., between 'not_run' and 'stopped', or between 'failed' and 'crashed'). Syntax
+     * highlighting is not based on this, so will always work regardless. Entries in this setting
+     * override the defaults. List of statuses:
+     *  - "not_run"
+     *  - "failed"
+     *  - "crashed"
+     *  - "stopped"
+     *  - "skipped"
+     *  - "passed"
+     *  - "running"
+     *  - "queued"
+     */
+    "status_symbol": {},
+
     /* DEBUG OPTIONS ------------------------------------------------ */
 
     /*
