@@ -13,33 +13,13 @@ from .. import process
 from . import common
 
 logger = logging.getLogger('TestExplorer.catch2')
-parser_logger = logging.getLogger('TestExplorerParser.catch2')
+
+# The content inside these tags is controlled by Catch2, don't assume it is standard output.
+catch2_controlled_tags = ['Info', 'Original', 'Expanded',
+                          'StdOut', 'StdErr', 'Skip', 'Exception', 'FatalErrorCondition']
 
 
-def make_header(text):
-    total_length = 64
-    remaining = max(0, total_length - len(text) - 2)
-    return f"{'='*(remaining//2)} {text} {'='*(remaining - remaining//2)}"
-
-
-def clean_xml_content(content, tag):
-    # Remove first and last entry; will be line jump and indentation whitespace, ignored.
-    if not tag in content:
-        return ''
-
-    returned_content = content[tag]
-    del content[tag]
-
-    if len(returned_content) <= 2:
-        return ''
-    return ''.join(returned_content[1:-1])
-
-
-# The content inside these tags is controlled by Catch2, don't assume it is output.
-controlled_tags = ['Info', 'Original', 'Expanded', 'StdOut', 'StdErr', 'Skip', 'Exception', 'FatalErrorCondition']
-
-
-class ResultsStreamHandler(xml.sax.handler.ContentHandler):
+class OutputParser(common.XmlParser):
     def __init__(self, test_data: TestData, framework: str, executable: str):
         self.test_data = test_data
         self.test_list = test_data.get_test_list()
@@ -48,25 +28,17 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
 
         self.current_test: Optional[List[str]] = None
         self.last_status: Optional[TestStatus] = None
-        self.current_element: List[str] = []
-        self.content = {}
         self.has_output = False
         self.current_expression: Optional[dict] = None
         self.current_sections = []
         self.current_infos = []
+        self.last_results_content = {}
+        self.last_expression_content = {}
 
     def startElement(self, name, attrs):
-        if len(self.current_element) > 0 and self.current_element[-1] not in controlled_tags:
-            content = clean_xml_content(self.content, self.current_element[-1])
-            if self.current_test is not None:
-                self.test_data.notify_test_output(TestOutput(self.current_test, content))
-
-        attrs_str = ', '.join(['"{}": "{}"'.format(k, v) for k, v in attrs.items()])
-        parser_logger.debug('startElement(' + name + ', ' + attrs_str + ')')
-        self.current_element.append(name)
-
         if name == 'TestCase':
-            self.current_test = self.test_list.find_test_by_report_id(self.framework, self.executable, attrs['name'])
+            self.current_test = self.test_list.find_test_by_report_id(
+                self.framework, self.executable, attrs['name'])
             if self.current_test is None:
                 return
 
@@ -86,50 +58,47 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
         elif name == 'Section':
             self.current_sections.append(attrs)
 
-    def endElement(self, name):
-        if name not in controlled_tags:
-            content = clean_xml_content(self.content, name)
-            if self.current_test is not None:
-                self.test_data.notify_test_output(TestOutput(self.current_test, content))
-
-        parser_logger.debug('endElement(' + name + ')')
-        self.current_element.pop()
-
-        if name == 'OverallResult':
+    def endElement(self, name, content):
+        if name == 'Skip' or name == 'StdErr' or name == 'StdOut':
+            self.last_results_content[name] = content
+        elif name == 'OverallResult':
             if self.current_test is None or self.last_status is None:
                 return
 
             prev = '\n\n' if self.has_output else ''
 
-            content = clean_xml_content(self.content, 'Skip')
+            content = self.last_results_content.get('Skip', '')
             if len(content) > 0:
                 self.test_data.notify_test_output(
-                    TestOutput(self.current_test, f'{prev}{make_header("SKIPPED")}\n{content.strip()}'))
+                    TestOutput(self.current_test, f'{prev}{common.make_header("SKIPPED")}\n{content.strip()}'))
                 prev = '\n\n'
 
-            content = clean_xml_content(self.content, 'StdErr')
+            content = self.last_results_content.get('StdErr', '')
             if len(content) > 0:
                 self.test_data.notify_test_output(
-                    TestOutput(self.current_test, f'{prev}{make_header("STDERR")}\n{content}'))
+                    TestOutput(self.current_test, f'{prev}{common.make_header("STDERR")}\n{content}'))
                 prev = '\n\n'
 
-            content = clean_xml_content(self.content, 'StdOut')
+            content = self.last_results_content.get('StdOut', '')
             if len(content) > 0:
                 self.test_data.notify_test_output(
-                    TestOutput(self.current_test, f'{prev}{make_header("STDOUT")}\n{content}'))
+                    TestOutput(self.current_test, f'{prev}{common.make_header("STDOUT")}\n{content}'))
 
             self.test_data.notify_test_finished(FinishedTest(self.current_test, self.last_status))
 
+            self.last_results_content = {}
             self.current_test = None
             self.has_output = False
+        elif name == 'Original' or name == 'Expanded':
+            self.last_expression_content[name] = content.strip()
         elif name == 'Expression':
             if self.current_test is None or self.current_expression is None:
                 return
 
             sep = '-'*64 + '\n'
 
-            original = clean_xml_content(self.content, 'Original').strip()
-            expanded = clean_xml_content(self.content, 'Expanded').strip()
+            original = self.last_expression_content.get('Original', '')
+            expanded = self.last_expression_content.get('Expanded', '')
 
             file = self.current_expression["filename"]
             line = self.current_expression["line"]
@@ -148,6 +117,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
                            sep))
 
             self.has_output = True
+            self.last_expression_content = {}
             self.current_expression = None
             self.current_infos = []
         elif name == 'Exception' or name == 'FatalErrorCondition':
@@ -156,7 +126,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
 
             sep = '-'*64 + '\n'
 
-            message = clean_xml_content(self.content, name).strip()
+            message = content.strip()
             result = 'EXCEPTION' if name == 'Exception' else 'CRASH'
             sections = ''.join([f'  in section "{s["name"]}"\n' for s in self.current_sections])
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
@@ -170,23 +140,13 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
         elif name == 'Section':
             self.current_sections.pop()
         elif name == 'Info':
-            self.current_infos.append(clean_xml_content(self.content, 'Info').strip())
+            self.current_infos.append(content.strip())
         elif name == 'TestCase':
             self.content = {}
 
-    def characters(self, content):
-        parser_logger.debug('characters(' + content + ')')
-        if len(self.current_element) > 0:
-            if self.current_test is None:
-                return
-
-            self.content.setdefault(self.current_element[-1], []).append(content)
-
-            if self.current_element[-1] not in controlled_tags:
-                content = self.content[self.current_element[-1]]
-                if len(content) > 1 and len(content[-1].strip()) > 0:
-                    self.test_data.notify_test_output(TestOutput(self.current_test, ''.join(content[1:])))
-                    del content[1:]
+    def output(self, content):
+        if self.current_test is not None:
+            self.test_data.notify_test_output(TestOutput(self.current_test, content))
 
 
 class Catch2(TestFramework):
@@ -340,7 +300,9 @@ class Catch2(TestFramework):
 
             if parser is None:
                 parser = xml.sax.make_parser()
-                parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id, executable))
+                parser.setContentHandler(common.XmlStreamHandler(
+                    OutputParser(self.test_data, self.framework_id, executable),
+                    catch2_controlled_tags))
 
             def stream_reader(parser, line):
                 parser.feed(line)
