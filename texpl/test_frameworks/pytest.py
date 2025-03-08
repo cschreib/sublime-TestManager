@@ -42,7 +42,7 @@ class OutputParser:
         data = json.loads(line)
 
         if data['status'] == 'started':
-            self.current_test = self.test_list.find_test_by_run_id(self.framework, 'pytest', data['test'])
+            self.current_test = self.test_list.find_test_by_report_id(self.framework, 'pytest', data['test'])
             if self.current_test is None:
                 return
 
@@ -169,8 +169,10 @@ class PyTest(TestFramework, Cmd):
         if self.custom_prefix is not None:
             path = self.custom_prefix.split(TEST_SEPARATOR) + path
 
+        run_id = test['name']
+
         return DiscoveredTest(
-            full_name=path, framework_id=self.framework_id, run_id=test['name'],
+            full_name=path, framework_id=self.framework_id, run_id=run_id, report_id=run_id,
             location=TestLocation(executable='pytest', file=file, line=test['line']))
 
     def parse_discovery(self, lines: List[str], working_directory: str) -> List[DiscoveredTest]:

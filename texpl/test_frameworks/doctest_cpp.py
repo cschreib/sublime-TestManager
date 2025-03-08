@@ -65,7 +65,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
                 # results for tests that we did not intend to run...
                 return
 
-            self.current_test = self.test_list.find_test_by_run_id(self.framework, self.executable, test_id)
+            self.current_test = self.test_list.find_test_by_report_id(self.framework, self.executable, test_id)
             if self.current_test is None:
                 return
 
@@ -277,7 +277,7 @@ class DoctestCpp(TestFramework, Cmd):
         path.append(name)
 
         return DiscoveredTest(
-            full_name=path, framework_id=self.framework_id, run_id=name,
+            full_name=path, framework_id=self.framework_id, run_id=name, report_id=name,
             location=TestLocation(executable=executable, file=file, line=int(line)))
 
     def parse_discovery(self, output: str, executable: str) -> List[DiscoveredTest]:

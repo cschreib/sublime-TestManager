@@ -21,14 +21,14 @@ class OutputParser:
         self.executable = executable
         self.current_test: Optional[List[str]] = None
 
-    def parse_run_id(self, line: str):
+    def parse_test_id(self, line: str):
         return line[12:].strip().split(' ')[0]
 
     def feed(self, line: str):
         parser_logger.debug(line.rstrip())
 
         if line.startswith('[ RUN      ] '):
-            self.current_test = self.test_list.find_test_by_run_id(self.framework, self.executable, self.parse_run_id(line))
+            self.current_test = self.test_list.find_test_by_report_id(self.framework, self.executable, self.parse_test_id(line))
             if self.current_test is None:
                 return
 
@@ -175,8 +175,10 @@ class GoogleTest(TestFramework, Cmd):
 
         path += pretty_suite.split('/') + [pretty_name]
 
+        run_id = f'{suite}.{name}'
+
         return DiscoveredTest(
-            full_name=path, framework_id=self.framework_id, run_id=f'{suite}.{name}',
+            full_name=path, framework_id=self.framework_id, run_id=run_id, report_id=run_id,
             location=TestLocation(executable=executable, file=file, line=line))
 
     def parse_discovery(self, output_file: str, executable: str) -> List[DiscoveredTest]:
