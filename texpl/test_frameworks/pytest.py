@@ -7,7 +7,6 @@ from ..test_framework import (TestFramework, register_framework)
 from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
                          StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput)
 from .. import process
-from .generic import get_generic_parser
 from . import common
 
 PYTEST_PLUGIN_PATH = 'pytest_plugins'
@@ -213,10 +212,10 @@ class PyTest(TestFramework):
 
         run_args = [self.get_python(), '-m', 'pytest'] + [test for tests in grouped_tests.values() for test in tests]
 
-        parser = get_generic_parser(parser=self.parser,
-                                    test_data=self.test_data,
-                                    framework_id=self.framework_id,
-                                    executable='pytest')
+        parser = common.get_generic_parser(parser=self.parser,
+                                           test_data=self.test_data,
+                                           framework_id=self.framework_id,
+                                           executable='pytest')
 
         if parser is None:
             parser = parser = OutputParser(self.test_data, self.framework_id)

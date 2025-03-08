@@ -10,7 +10,6 @@ from ..test_framework import (TestFramework, register_framework)
 from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
                          StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput)
 from .. import process
-from .generic import get_generic_parser
 from . import common
 
 logger = logging.getLogger('TestExplorer.catch2')
@@ -334,10 +333,10 @@ class Catch2(TestFramework):
             exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
             run_args = [exe, test_filters]
 
-            parser = get_generic_parser(parser=self.parser,
-                                        test_data=self.test_data,
-                                        framework_id=self.framework_id,
-                                        executable=executable)
+            parser = common.get_generic_parser(parser=self.parser,
+                                               test_data=self.test_data,
+                                               framework_id=self.framework_id,
+                                               executable=executable)
 
             if parser is None:
                 parser = xml.sax.make_parser()
