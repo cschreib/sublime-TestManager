@@ -170,6 +170,8 @@ def your_framework_factory_function(test_data: TestData, project_root_dir: str, 
     return YourTestFramework(test_data)
 ```
 
+The builtin framework class for Google Test is a good example to emulate, and has one of the simplest parser. See `test_frameworks/gtest.py`.
+
 
 ## Custom test status colors
 
