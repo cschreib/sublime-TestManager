@@ -9,6 +9,7 @@ from functools import partial
 from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
 from ..cmd import Cmd
+from .generic import get_generic_parser
 
 logger = logging.getLogger('TestExplorer.doctest-cpp')
 parser_logger = logging.getLogger('TestExplorerParser.doctest-cpp')
@@ -170,8 +171,11 @@ class DoctestCpp(TestFramework, Cmd):
                        env: Dict[str,str] = {},
                        cwd: Optional[str] = None,
                        args: List[str] = [],
+                       discover_args: List[str] = [],
+                       run_args: List[str] = [],
                        path_prefix_style: str = 'full',
-                       custom_prefix: Optional[str] = None):
+                       custom_prefix: Optional[str] = None,
+                       parser: str = 'default'):
         super().__init__(test_data, project_root_dir)
         self.test_data = test_data
         self.framework_id = framework_id
@@ -179,8 +183,11 @@ class DoctestCpp(TestFramework, Cmd):
         self.env = env
         self.cwd = cwd
         self.args = args
+        self.discover_args = discover_args
+        self.run_args = run_args
         self.path_prefix_style = path_prefix_style
         self.custom_prefix = custom_prefix
+        self.parser = parser
 
     @staticmethod
     def from_json(test_data: TestData, project_root_dir: str, json_data: Dict):
@@ -192,8 +199,11 @@ class DoctestCpp(TestFramework, Cmd):
                           env=json_data.get('env', {}),
                           cwd=json_data.get('cwd', None),
                           args=json_data.get('args', []),
+                          discover_args=json_data.get('discover_args', []),
+                          run_args=json_data.get('run_args', ['-r=xml']),
                           path_prefix_style=json_data.get('path_prefix_style', 'full'),
-                          custom_prefix=json_data.get('custom_prefix', None))
+                          custom_prefix=json_data.get('custom_prefix', None),
+                          parser=json_data.get('parser', 'default'))
 
     def get_id(self):
         return self.framework_id
@@ -220,7 +230,7 @@ class DoctestCpp(TestFramework, Cmd):
 
         def run_discovery(executable):
             discover_args = [self.make_executable_path(executable), '-r=xml', '-ltc', '--no-skip']
-            output = self.cmd_string(discover_args + self.args, env=self.env, cwd=cwd)
+            output = self.cmd_string(discover_args + self.args + self.discover_args, env=self.env, cwd=cwd)
             try:
                 return self.parse_discovery(output, executable)
             except DiscoveryError as e:
@@ -295,10 +305,16 @@ class DoctestCpp(TestFramework, Cmd):
             logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
 
             test_filters = ','.join(test.replace(',','\\,') for test in test_ids)
-            run_args = [self.make_executable_path(executable), '-r=xml', '-tc=' + test_filters]
+            run_args = [self.make_executable_path(executable), '-tc=' + test_filters]
 
-            parser = xml.sax.make_parser()
-            parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id, executable, test_ids))
+            parser = get_generic_parser(parser=self.parser,
+                                        test_data=self.test_data,
+                                        framework_id=self.framework_id,
+                                        executable=executable)
+
+            if parser is None:
+                parser = xml.sax.make_parser()
+                parser.setContentHandler(ResultsStreamHandler(self.test_data, self.framework_id, executable, test_ids))
 
             def stream_reader(parser, line):
                 parser.feed(line)

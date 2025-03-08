@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
 from ..cmd import Cmd
+from .generic import get_generic_parser
 
 PYTEST_PLUGIN_PATH = 'pytest_plugins'
 PYTEST_PLUGIN = 'sublime_test_runner'
@@ -89,8 +90,11 @@ class PyTest(TestFramework, Cmd):
                        env: Dict[str,str] = {},
                        cwd: Optional[str] = None,
                        args: List[str] = [],
+                       discover_args: List[str] = [],
+                       run_args: List[str] = [],
                        path_prefix_style: str = 'full',
-                       custom_prefix: Optional[str] = None):
+                       custom_prefix: Optional[str] = None,
+                       parser: str = 'default'):
         super().__init__(test_data, project_root_dir)
         self.test_data = test_data
         self.framework_id = framework_id
@@ -98,8 +102,11 @@ class PyTest(TestFramework, Cmd):
         self.env = env
         self.cwd = cwd
         self.args = args
+        self.discover_args = discover_args
+        self.run_args = run_args
         self.path_prefix_style = path_prefix_style
         self.custom_prefix = custom_prefix
+        self.parser = parser
 
     @staticmethod
     def from_json(test_data: TestData, project_root_dir: str, json_data: Dict):
@@ -111,8 +118,11 @@ class PyTest(TestFramework, Cmd):
                       env=json_data.get('env', {}),
                       cwd=json_data.get('cwd', None),
                       args=json_data.get('args', []),
+                      discover_args=json_data.get('discover_args', []),
+                      run_args=json_data.get('run_args', []),
                       path_prefix_style=json_data.get('path_prefix_style', 'full'),
-                      custom_prefix=json_data.get('custom_prefix', None))
+                      custom_prefix=json_data.get('custom_prefix', None),
+                      parser=json_data.get('parser', 'default'))
 
     def get_id(self):
         return self.framework_id
@@ -142,8 +152,8 @@ class PyTest(TestFramework, Cmd):
         env = self.get_env()
         cwd = self.get_working_directory()
 
-        discover_args = [self.python, '-m', 'pytest', '--collect-only', '-q']
-        lines = self.cmd_lines(discover_args + self.args, env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
+        discover_args = [self.python, '-m', 'pytest', '--collect-only']
+        lines = self.cmd_lines(discover_args + self.args + self.discover_args, env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
         return self.parse_discovery(lines, cwd)
 
     def parse_discovered_test(self, test: Dict, working_directory: str):
@@ -170,9 +180,15 @@ class PyTest(TestFramework, Cmd):
             path = self.custom_prefix.split(TEST_SEPARATOR) + path
 
         run_id = test['name']
+        report_id = run_id
+        if self.parser == 'teamcity':
+            components = test['name'].split('::')
+            report_file, _ = os.path.splitext(components[0])
+            report_id = '.'.join([report_file.replace('/', '.').replace('\\', '.')] + components[1:])
+            report_id = report_id.replace('[', '(').replace(']', ')')
 
         return DiscoveredTest(
-            full_name=path, framework_id=self.framework_id, run_id=run_id, report_id=run_id,
+            full_name=path, framework_id=self.framework_id, run_id=run_id, report_id=report_id,
             location=TestLocation(executable='pytest', file=file, line=test['line']))
 
     def parse_discovery(self, lines: List[str], working_directory: str) -> List[DiscoveredTest]:
@@ -197,9 +213,15 @@ class PyTest(TestFramework, Cmd):
 
         run_args = [self.python, '-m', 'pytest'] + [test for tests in grouped_tests.values() for test in tests]
 
-        parser = OutputParser(self.test_data, self.framework_id)
+        parser = get_generic_parser(parser=self.parser,
+                                    test_data=self.test_data,
+                                    framework_id=self.framework_id,
+                                    executable='pytest')
 
-        self.cmd_streamed(run_args + self.args, parser.feed, self.test_data.stop_tests_event,
+        if parser is None:
+            parser = parser = OutputParser(self.test_data, self.framework_id)
+
+        self.cmd_streamed(run_args + self.args + self.run_args, parser.feed, self.test_data.stop_tests_event,
             queue='pytest', ignore_errors=True, env=env, cwd=cwd)
 
 
