@@ -8,7 +8,6 @@ from typing import List
 import sublime
 from sublime_plugin import WindowCommand
 
-from .cmd import Cmd
 from .helpers import TestDataHelper
 from .test_framework import TestFramework
 from .test_data import DiscoveryError, TestData, clear_test_data
@@ -51,7 +50,7 @@ class TestExplorerResetCommand(WindowCommand, TestDataHelper):
             sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})
 
 
-class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper, Cmd):
+class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
 
     def is_visible(self):
         return True

@@ -8,8 +8,9 @@ from functools import partial
 
 from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
-from ..cmd import Cmd
+from .. import process
 from .generic import get_generic_parser
+from . import common
 
 logger = logging.getLogger('TestExplorer.doctest-cpp')
 parser_logger = logging.getLogger('TestExplorerParser.doctest-cpp')
@@ -163,7 +164,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
                     self.test_data.notify_test_output(TestOutput(self.current_test, ''.join(content[1:])))
                     del content[1:]
 
-class DoctestCpp(TestFramework, Cmd):
+class DoctestCpp(TestFramework):
     def __init__(self, test_data: TestData,
                        project_root_dir: str,
                        framework_id: str = '',
@@ -208,29 +209,16 @@ class DoctestCpp(TestFramework, Cmd):
     def get_id(self):
         return self.framework_id
 
-    def get_working_directory(self):
-        # Set up current working directory. Default to the project root dir.
-        if self.cwd is not None:
-            cwd = self.cwd
-            if not os.path.isabs(cwd):
-                cwd = os.path.join(self.project_root_dir, cwd)
-        else:
-            cwd = self.project_root_dir
-
-        return cwd
-
-    def make_executable_path(self, executable):
-        return os.path.join(self.project_root_dir, executable) if not os.path.isabs(executable) else executable
-
     def discover(self) -> List[DiscoveredTest]:
-        cwd = self.get_working_directory()
+        cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
         errors = []
         tests = []
 
         def run_discovery(executable):
-            discover_args = [self.make_executable_path(executable), '-r=xml', '-ltc', '--no-skip']
-            output = self.cmd_string(discover_args + self.args + self.discover_args, env=self.env, cwd=cwd)
+            exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
+            discover_args = [exe, '-r=xml', '-ltc', '--no-skip']
+            output = process.get_output(discover_args + self.args + self.discover_args, env=self.env, cwd=cwd)
             try:
                 return self.parse_discovery(output, executable)
             except DiscoveryError as e:
@@ -299,13 +287,14 @@ class DoctestCpp(TestFramework, Cmd):
         return tests
 
     def run(self, grouped_tests: Dict[str, List[str]]) -> None:
-        cwd = self.get_working_directory()
+        cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
         def run_tests(executable, test_ids):
             logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
 
             test_filters = ','.join(test.replace(',','\\,') for test in test_ids)
-            run_args = [self.make_executable_path(executable), '-tc=' + test_filters]
+            exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
+            run_args = [exe, '-tc=' + test_filters]
 
             parser = get_generic_parser(parser=self.parser,
                                         test_data=self.test_data,
@@ -319,7 +308,8 @@ class DoctestCpp(TestFramework, Cmd):
             def stream_reader(parser, line):
                 parser.feed(line)
 
-            self.cmd_streamed(run_args + self.args, partial(stream_reader, parser), self.test_data.stop_tests_event,
+            process.get_output_streamed(run_args + self.args,
+                partial(stream_reader, parser), self.test_data.stop_tests_event,
                 queue='doctest-cpp', ignore_errors=True, env=self.env, cwd=cwd)
 
         for executable, test_ids in grouped_tests.items():

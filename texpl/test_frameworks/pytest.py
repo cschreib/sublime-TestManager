@@ -5,8 +5,9 @@ from typing import Dict, List, Optional
 
 from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
-from ..cmd import Cmd
+from .. import process
 from .generic import get_generic_parser
+from . import common
 
 PYTEST_PLUGIN_PATH = 'pytest_plugins'
 PYTEST_PLUGIN = 'sublime_test_runner'
@@ -82,7 +83,7 @@ def get_os_pytest_plugins():
     return plugins.split(',')
 
 
-class PyTest(TestFramework, Cmd):
+class PyTest(TestFramework):
     def __init__(self, test_data: TestData,
                        project_root_dir: str,
                        framework_id: str = '',
@@ -127,17 +128,6 @@ class PyTest(TestFramework, Cmd):
     def get_id(self):
         return self.framework_id
 
-    def get_working_directory(self):
-        # Set up current working directory. Default to the project root dir.
-        if self.cwd is not None:
-            cwd = self.cwd
-            if not os.path.isabs(cwd):
-                cwd = os.path.join(self.project_root_dir, cwd)
-        else:
-            cwd = self.project_root_dir
-
-        return cwd
-
     def get_python(self):
         if not os.path.isabs(self.python) and len(os.path.dirname(self.python)) > 0:
             return os.path.join(self.project_root_dir, self.python)
@@ -156,11 +146,11 @@ class PyTest(TestFramework, Cmd):
 
     def discover(self) -> List[DiscoveredTest]:
         env = self.get_env()
-        cwd = self.get_working_directory()
+        cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
         discover_args = [self.get_python(), '-m', 'pytest', '--collect-only']
-        lines = self.cmd_lines(discover_args + self.args + self.discover_args, env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
-        return self.parse_discovery(lines, cwd)
+        output = process.get_output(discover_args + self.args + self.discover_args, env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
+        return self.parse_discovery(output, cwd)
 
     def parse_discovered_test(self, test: Dict, working_directory: str):
         # Make file path relative to project directory.
@@ -197,8 +187,8 @@ class PyTest(TestFramework, Cmd):
             full_name=path, framework_id=self.framework_id, run_id=run_id, report_id=report_id,
             location=TestLocation(executable='pytest', file=file, line=test['line']))
 
-    def parse_discovery(self, lines: List[str], working_directory: str) -> List[DiscoveredTest]:
-        for line in lines:
+    def parse_discovery(self, output: str, working_directory: str) -> List[DiscoveredTest]:
+        for line in output.split('\n'):
             parser_logger.debug(line.rstrip())
             if PYTEST_DISCOVERY_HEADER in line:
                 line = line.replace(PYTEST_DISCOVERY_HEADER, '')
@@ -213,7 +203,7 @@ class PyTest(TestFramework, Cmd):
 
     def run(self, grouped_tests: Dict[str, List[str]]) -> None:
         env = self.get_env()
-        cwd = self.get_working_directory()
+        cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
         assert len(grouped_tests) == 1
 
@@ -227,7 +217,8 @@ class PyTest(TestFramework, Cmd):
         if parser is None:
             parser = parser = OutputParser(self.test_data, self.framework_id)
 
-        self.cmd_streamed(run_args + self.args + self.run_args, parser.feed, self.test_data.stop_tests_event,
+        process.get_output_streamed(run_args + self.args + self.run_args,
+            parser.feed, self.test_data.stop_tests_event,
             queue='pytest', ignore_errors=True, env=env, cwd=cwd)
 
 

@@ -7,8 +7,9 @@ from tempfile import TemporaryDirectory
 
 from ..test_framework import TestFramework, register_framework
 from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
-from ..cmd import Cmd
+from .. import process
 from .generic import get_generic_parser
+from . import common
 
 logger = logging.getLogger('TestExplorer.gtest')
 parser_logger = logging.getLogger('TestExplorerParser.gtest')
@@ -57,7 +58,7 @@ class OutputParser:
             self.current_test = None
 
 
-class GoogleTest(TestFramework, Cmd):
+class GoogleTest(TestFramework):
     def __init__(self, test_data: TestData,
                        project_root_dir: str,
                        framework_id: str = '',
@@ -102,22 +103,8 @@ class GoogleTest(TestFramework, Cmd):
     def get_id(self):
         return self.framework_id
 
-    def get_working_directory(self):
-        # Set up current working directory. Default to the project root dir.
-        if self.cwd is not None:
-            cwd = self.cwd
-            if not os.path.isabs(cwd):
-                cwd = os.path.join(self.project_root_dir, cwd)
-        else:
-            cwd = self.project_root_dir
-
-        return cwd
-
-    def make_executable_path(self, executable):
-        return os.path.join(self.project_root_dir, executable) if not os.path.isabs(executable) else executable
-
     def discover(self) -> List[DiscoveredTest]:
-        cwd = self.get_working_directory()
+        cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
         errors = []
         tests = []
@@ -125,8 +112,9 @@ class GoogleTest(TestFramework, Cmd):
         with TemporaryDirectory() as temp_dir:
             def run_discovery(executable):
                 output_file = os.path.join(temp_dir, 'output.json')
-                discover_args = [self.make_executable_path(executable), f'--gtest_output=json:{output_file}', '--gtest_list_tests']
-                self.cmd_string(discover_args + self.args + self.discover_args, env=self.env, cwd=cwd)
+                exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
+                discover_args = [exe, f'--gtest_output=json:{output_file}', '--gtest_list_tests']
+                process.get_output(discover_args + self.args + self.discover_args, env=self.env, cwd=cwd)
                 try:
                     return self.parse_discovery(output_file, executable)
                 except DiscoveryError as e:
@@ -199,13 +187,14 @@ class GoogleTest(TestFramework, Cmd):
         return tests
 
     def run(self, grouped_tests: Dict[str, List[str]]) -> None:
-        cwd = self.get_working_directory()
+        cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
         def run_tests(executable, test_ids):
             logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
 
             test_filters = ':'.join(test_ids)
-            run_args = [self.make_executable_path(executable), '--gtest_filter=' + test_filters]
+            exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
+            run_args = [exe, '--gtest_filter=' + test_filters]
 
             parser = get_generic_parser(parser=self.parser,
                                         test_data=self.test_data,
@@ -215,7 +204,7 @@ class GoogleTest(TestFramework, Cmd):
             if parser is None:
                 parser = OutputParser(self.test_data, self.framework_id, executable)
 
-            self.cmd_streamed(run_args + self.args + self.run_args, parser.feed, self.test_data.stop_tests_event,
+            process.get_output_streamed(run_args + self.args + self.run_args, parser.feed, self.test_data.stop_tests_event,
                 queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
 
         for executable, test_ids in grouped_tests.items():
