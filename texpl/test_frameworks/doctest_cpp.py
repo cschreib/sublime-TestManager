@@ -281,7 +281,7 @@ class DoctestCpp(TestFramework):
             def stream_reader(parser, line):
                 parser.feed(line)
 
-            process.get_output_streamed(run_args + self.args,
+            process.get_output_streamed(run_args + self.args + self.run_args,
                                         partial(stream_reader, parser), self.test_data.stop_tests_event,
                                         queue='doctest-cpp', ignore_errors=True, env=self.env, cwd=cwd)
 
