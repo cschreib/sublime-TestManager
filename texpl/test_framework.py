@@ -28,12 +28,29 @@ class TestFramework(ABC):
 
     @abstractmethod
     def get_id(self) -> str:
+        """
+        Return a string containing the unique ID of the framework instance.
+        This will normally be the "id" field in the user JSON, but you can override that.
+        """
         pass
 
     @abstractmethod
     def discover(self) -> List[DiscoveredTest]:
+        """
+        Run test discovery and return a list of discovered tests. The discovered tests will
+        be registered with the TestData class automatically, you do not need to do this yourself.
+        """
         pass
 
     @abstractmethod
     def run(self, grouped_tests: Dict[str, List[str]]) -> None:
+        """
+        Run the tests selected in 'grouped_tests'.
+        The tests are grouped by "executable" (as defined during test discovery), for efficiency.
+        While tests are running, it is expected that this function will notify the TestData
+        class of any of the following events:
+         - TestData.notify_test_started()
+         - TestData.notify_test_output()
+         - TestData.notify_test_finished()
+        """
         pass
