@@ -138,6 +138,12 @@ class PyTest(TestFramework, Cmd):
 
         return cwd
 
+    def get_python(self):
+        if not os.path.isabs(self.python) and len(os.path.dirname(self.python)) > 0:
+            return os.path.join(self.project_root_dir, self.python)
+
+        return self.python
+
     def get_env(self):
         # Default discovery output of pytest does not contain file & line numbers.
         # We can import our own pytest plugin to fill the gap.
@@ -152,7 +158,7 @@ class PyTest(TestFramework, Cmd):
         env = self.get_env()
         cwd = self.get_working_directory()
 
-        discover_args = [self.python, '-m', 'pytest', '--collect-only']
+        discover_args = [self.get_python(), '-m', 'pytest', '--collect-only']
         lines = self.cmd_lines(discover_args + self.args + self.discover_args, env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
         return self.parse_discovery(lines, cwd)
 
@@ -211,7 +217,7 @@ class PyTest(TestFramework, Cmd):
 
         assert len(grouped_tests) == 1
 
-        run_args = [self.python, '-m', 'pytest'] + [test for tests in grouped_tests.values() for test in tests]
+        run_args = [self.get_python(), '-m', 'pytest'] + [test for tests in grouped_tests.values() for test in tests]
 
         parser = get_generic_parser(parser=self.parser,
                                     test_data=self.test_data,
