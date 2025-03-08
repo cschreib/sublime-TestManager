@@ -38,14 +38,25 @@ def make_header(text, length=64, pattern='='):
 class XmlParser(ABC):
     @abstractmethod
     def startElement(self, name, attrs) -> None:
+        """
+        Called when a new XML element is open. Includes all attributes.
+        """
         pass
 
     @abstractmethod
     def endElement(self, name, content) -> None:
+        """
+        Called when an XML element is closed. Includes the inner content, but only
+        if this element is listed among the "captured" elements.
+        """
         pass
 
     @abstractmethod
     def output(self, content) -> None:
+        """
+        Called for non-captured inner content. Generally, this is standard output
+        interleaved between elements.
+        """
         pass
 
 
@@ -53,9 +64,9 @@ xml_parser_logger = logging.getLogger('TestExplorerParser.xml-base')
 
 
 class XmlStreamHandler(xml.sax.handler.ContentHandler):
-    def __init__(self, parser: XmlParser, controlled_tags: List[str] = []):
+    def __init__(self, parser: XmlParser, captured_elements: List[str] = []):
         self.parser = parser
-        self.controlled_tags = controlled_tags
+        self.captured_elements = captured_elements
 
         self.current_element: List[str] = []
         self.content = {}
@@ -74,7 +85,7 @@ class XmlStreamHandler(xml.sax.handler.ContentHandler):
         return ''.join(returned_content[1:-1])
 
     def startElement(self, name, attrs):
-        if len(self.current_element) > 0 and self.current_element[-1] not in self.controlled_tags:
+        if len(self.current_element) > 0 and self.current_element[-1] not in self.captured_elements:
             content = self.clean_xml_content(self.content, self.current_element[-1])
             self.parser.output(content)
 
@@ -85,7 +96,7 @@ class XmlStreamHandler(xml.sax.handler.ContentHandler):
         self.parser.startElement(name, attrs)
 
     def endElement(self, name):
-        if name not in self.controlled_tags:
+        if name not in self.captured_elements:
             content = self.clean_xml_content(self.content, name)
             self.parser.output(content)
 
@@ -99,7 +110,7 @@ class XmlStreamHandler(xml.sax.handler.ContentHandler):
         if len(self.current_element) > 0:
             self.content.setdefault(self.current_element[-1], []).append(content)
 
-            if self.current_element[-1] not in self.controlled_tags:
+            if self.current_element[-1] not in self.captured_elements:
                 content = self.content[self.current_element[-1]]
                 if len(content) > 1 and len(content[-1].strip()) > 0:
                     output_content = ''.join(content[1:])

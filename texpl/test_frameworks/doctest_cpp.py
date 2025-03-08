@@ -14,8 +14,8 @@ from . import common
 
 logger = logging.getLogger('TestExplorer.doctest-cpp')
 
-# The content inside these tags is controlled by doctest, don't assume it is output.
-doctest_controlled_tags = ['Info', 'Original', 'Expanded', 'Exception']
+# The content inside these elements is controlled by doctest, don't assume it is standard output.
+captured_elements = ['Info', 'Original', 'Expanded', 'Exception']
 
 
 class OutputParser(common.XmlParser):
@@ -276,7 +276,7 @@ class DoctestCpp(TestFramework):
                 parser = xml.sax.make_parser()
                 parser.setContentHandler(common.XmlStreamHandler(
                     OutputParser(self.test_data, self.framework_id, executable, test_ids),
-                    doctest_controlled_tags))
+                    captured_elements))
 
             def stream_reader(parser, line):
                 parser.feed(line)

@@ -14,9 +14,9 @@ from . import common
 
 logger = logging.getLogger('TestExplorer.catch2')
 
-# The content inside these tags is controlled by Catch2, don't assume it is standard output.
-catch2_controlled_tags = ['Info', 'Original', 'Expanded',
-                          'StdOut', 'StdErr', 'Skip', 'Exception', 'FatalErrorCondition']
+# The content inside these elements is controlled by Catch2, don't assume it is standard output.
+captured_elements = ['Info', 'Original', 'Expanded',
+                     'StdOut', 'StdErr', 'Skip', 'Exception', 'FatalErrorCondition']
 
 
 class OutputParser(common.XmlParser):
@@ -302,7 +302,7 @@ class Catch2(TestFramework):
                 parser = xml.sax.make_parser()
                 parser.setContentHandler(common.XmlStreamHandler(
                     OutputParser(self.test_data, self.framework_id, executable),
-                    catch2_controlled_tags))
+                    captured_elements))
 
             def stream_reader(parser, line):
                 parser.feed(line)
