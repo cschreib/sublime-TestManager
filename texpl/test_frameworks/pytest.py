@@ -3,8 +3,9 @@ import json
 import logging
 from typing import Dict, List, Optional
 
-from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
+from ..test_framework import (TestFramework, register_framework)
+from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
+                         StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput)
 from .. import process
 from .generic import get_generic_parser
 from . import common
@@ -85,17 +86,17 @@ def get_os_pytest_plugins():
 
 class PyTest(TestFramework):
     def __init__(self, test_data: TestData,
-                       project_root_dir: str,
-                       framework_id: str = '',
-                       python: str = 'python',
-                       env: Dict[str,str] = {},
-                       cwd: Optional[str] = None,
-                       args: List[str] = [],
-                       discover_args: List[str] = [],
-                       run_args: List[str] = [],
-                       path_prefix_style: str = 'full',
-                       custom_prefix: Optional[str] = None,
-                       parser: str = 'default'):
+                 project_root_dir: str,
+                 framework_id: str = '',
+                 python: str = 'python',
+                 env: Dict[str, str] = {},
+                 cwd: Optional[str] = None,
+                 args: List[str] = [],
+                 discover_args: List[str] = [],
+                 run_args: List[str] = [],
+                 path_prefix_style: str = 'full',
+                 custom_prefix: Optional[str] = None,
+                 parser: str = 'default'):
         super().__init__(test_data, project_root_dir)
         self.test_data = test_data
         self.framework_id = framework_id
@@ -149,7 +150,8 @@ class PyTest(TestFramework):
         cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
         discover_args = [self.get_python(), '-m', 'pytest', '--collect-only']
-        output = process.get_output(discover_args + self.args + self.discover_args, env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
+        output = process.get_output(discover_args + self.args + self.discover_args,
+                                    env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
         return self.parse_discovery(output, cwd)
 
     def parse_discovered_test(self, test: Dict, working_directory: str):
@@ -162,7 +164,8 @@ class PyTest(TestFramework):
         # They are usually the same, except when tests are imported.
         path = test['name'].split('::')
         discovery_file = path[0]
-        discovery_file = os.path.normpath(os.path.relpath(os.path.join(working_directory, discovery_file), start=self.project_root_dir))
+        discovery_file = os.path.normpath(os.path.relpath(os.path.join(
+            working_directory, discovery_file), start=self.project_root_dir))
         path = path[1:]
 
         if self.path_prefix_style == 'full':
@@ -195,7 +198,8 @@ class PyTest(TestFramework):
 
                 data = json.loads(line)
                 if data['errors']:
-                    raise DiscoveryError('Error when discovering tests. See panel for more information.', details=data['errors'])
+                    raise DiscoveryError(
+                        'Error when discovering tests. See panel for more information.', details=data['errors'])
 
                 return [self.parse_discovered_test(t, working_directory) for t in data['tests']]
 
@@ -218,8 +222,8 @@ class PyTest(TestFramework):
             parser = parser = OutputParser(self.test_data, self.framework_id)
 
         process.get_output_streamed(run_args + self.args + self.run_args,
-            parser.feed, self.test_data.stop_tests_event,
-            queue='pytest', ignore_errors=True, env=env, cwd=cwd)
+                                    parser.feed, self.test_data.stop_tests_event,
+                                    queue='pytest', ignore_errors=True, env=env, cwd=cwd)
 
 
 register_framework('pytest', PyTest.from_json)

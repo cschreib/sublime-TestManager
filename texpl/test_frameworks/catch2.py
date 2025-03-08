@@ -6,8 +6,9 @@ import xml.sax
 from typing import Dict, List, Optional
 from functools import partial
 
-from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
+from ..test_framework import (TestFramework, register_framework)
+from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
+                         StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput)
 from .. import process
 from .generic import get_generic_parser
 from . import common
@@ -15,10 +16,12 @@ from . import common
 logger = logging.getLogger('TestExplorer.catch2')
 parser_logger = logging.getLogger('TestExplorerParser.catch2')
 
+
 def make_header(text):
     total_length = 64
     remaining = max(0, total_length - len(text) - 2)
     return f"{'='*(remaining//2)} {text} {'='*(remaining - remaining//2)}"
+
 
 def clean_xml_content(content, tag):
     # Remove first and last entry; will be line jump and indentation whitespace, ignored.
@@ -32,8 +35,10 @@ def clean_xml_content(content, tag):
         return ''
     return ''.join(returned_content[1:-1])
 
+
 # The content inside these tags is controlled by Catch2, don't assume it is output.
 controlled_tags = ['Info', 'Original', 'Expanded', 'StdOut', 'StdErr', 'Skip', 'Exception', 'FatalErrorCondition']
+
 
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
     def __init__(self, test_data: TestData, framework: str, executable: str):
@@ -99,17 +104,20 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
 
             content = clean_xml_content(self.content, 'Skip')
             if len(content) > 0:
-                self.test_data.notify_test_output(TestOutput(self.current_test, f'{prev}{make_header("SKIPPED")}\n{content.strip()}'))
+                self.test_data.notify_test_output(
+                    TestOutput(self.current_test, f'{prev}{make_header("SKIPPED")}\n{content.strip()}'))
                 prev = '\n\n'
 
             content = clean_xml_content(self.content, 'StdErr')
             if len(content) > 0:
-                self.test_data.notify_test_output(TestOutput(self.current_test, f'{prev}{make_header("STDERR")}\n{content}'))
+                self.test_data.notify_test_output(
+                    TestOutput(self.current_test, f'{prev}{make_header("STDERR")}\n{content}'))
                 prev = '\n\n'
 
             content = clean_xml_content(self.content, 'StdOut')
             if len(content) > 0:
-                self.test_data.notify_test_output(TestOutput(self.current_test, f'{prev}{make_header("STDOUT")}\n{content}'))
+                self.test_data.notify_test_output(
+                    TestOutput(self.current_test, f'{prev}{make_header("STDOUT")}\n{content}'))
 
             self.test_data.notify_test_finished(FinishedTest(self.current_test, self.last_status))
 
@@ -131,8 +139,14 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             sections = ''.join([f'  in section "{s["name"]}"\n' for s in self.current_sections])
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
 
-            self.test_data.notify_test_output(TestOutput(self.current_test,
-                f'{sep}{result}\n  at {file}:{line}\n{sections}{infos}\nExpected: {check}({original})\nActual:   {expanded}\n{sep}'))
+            self.test_data.notify_test_output(
+                TestOutput(self.current_test, sep +
+                           f'{result}\n' +
+                           f'  at {file}:{line}\n' +
+                           f'{sections}{infos}\n' +
+                           f'Expected: {check}({original})\n' +
+                           f'Actual:   {expanded}\n' +
+                           sep))
 
             self.has_output = True
             self.current_expression = None
@@ -149,7 +163,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
 
             self.test_data.notify_test_output(TestOutput(self.current_test,
-                f'{sep}{result}\n{sections}{infos}{message}\n{sep}'))
+                                                         f'{sep}{result}\n{sections}{infos}{message}\n{sep}'))
 
             self.has_output = True
             self.current_exception = None
@@ -178,17 +192,17 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
 
 class Catch2(TestFramework):
     def __init__(self, test_data: TestData,
-                       project_root_dir: str,
-                       framework_id: str = '',
-                       executable_pattern: str = '*',
-                       env: Dict[str,str] = {},
-                       cwd: Optional[str] = None,
-                       args: List[str] = [],
-                       discover_args: List[str] = [],
-                       run_args: List[str] = [],
-                       path_prefix_style: str = 'full',
-                       custom_prefix: Optional[str] = None,
-                       parser: str = 'default'):
+                 project_root_dir: str,
+                 framework_id: str = '',
+                 executable_pattern: str = '*',
+                 env: Dict[str, str] = {},
+                 cwd: Optional[str] = None,
+                 args: List[str] = [],
+                 discover_args: List[str] = [],
+                 run_args: List[str] = [],
+                 path_prefix_style: str = 'full',
+                 custom_prefix: Optional[str] = None,
+                 parser: str = 'default'):
         super().__init__(test_data, project_root_dir)
         self.test_data = test_data
         self.framework_id = framework_id
@@ -230,7 +244,8 @@ class Catch2(TestFramework):
         def run_discovery(executable):
             exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
             discover_args = [exe, '-r', 'xml', '--list-tests']
-            output = process.get_output(discover_args + self.args + self.discover_args, queue='catch2', env=self.env, cwd=cwd)
+            output = process.get_output(discover_args + self.args + self.discover_args,
+                                        queue='catch2', env=self.env, cwd=cwd)
             try:
                 return self.parse_discovery(output, executable)
             except DiscoveryError as e:
@@ -243,7 +258,8 @@ class Catch2(TestFramework):
             executables = [e for e in glob.glob(self.executable_pattern)]
             os.chdir(old_cwd)
             if len(executables) == 0:
-                logger.warning(f'no executable found with pattern "{self.executable_pattern}" (cwd: {self.project_root_dir})')
+                logger.warning(f'no executable found with pattern "{self.executable_pattern}" ' +
+                               f'(cwd: {self.project_root_dir})')
 
             for executable in executables:
                 tests += run_discovery(executable)
@@ -331,8 +347,8 @@ class Catch2(TestFramework):
                 parser.feed(line)
 
             process.get_output_streamed(run_args + self.args + self.run_args,
-                partial(stream_reader, parser), self.test_data.stop_tests_event,
-                queue='catch2', ignore_errors=True, env=self.env, cwd=cwd)
+                                        partial(stream_reader, parser), self.test_data.stop_tests_event,
+                                        queue='catch2', ignore_errors=True, env=self.env, cwd=cwd)
 
         for executable, test_ids in grouped_tests.items():
             run_tests(executable, test_ids)

@@ -2,9 +2,10 @@ import logging
 import re
 from typing import List, Optional
 
-from ..test_data import TestData, StartedTest, FinishedTest, TestStatus, TestOutput
+from ..test_data import (TestData, StartedTest, FinishedTest, TestStatus, TestOutput)
 
 parser_logger = logging.getLogger('TestExplorerParser.teamcity')
+
 
 class OutputParser:
     def __init__(self, test_data: TestData, framework: str, executable: str):
@@ -28,7 +29,8 @@ class OutputParser:
             return
 
         if line.startswith('##teamcity[testStarted'):
-            self.current_test = self.test_list.find_test_by_report_id(self.framework, self.executable, self.parse_test_id(line))
+            self.current_test = self.test_list.find_test_by_report_id(
+                self.framework, self.executable, self.parse_test_id(line))
             self.current_status = TestStatus.PASSED
             if self.current_test is None:
                 return
@@ -47,4 +49,3 @@ class OutputParser:
 
         if line.startswith('##teamcity[testFailed'):
             self.current_status = TestStatus.FAILED
-

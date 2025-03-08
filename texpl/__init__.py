@@ -23,3 +23,5 @@ from .testexplorer import (TestExplorerVersionCommand)
 # import test frameworks handlers
 
 from . import test_frameworks
+
+from . import process

@@ -6,14 +6,16 @@ import xml.sax
 from typing import Dict, List, Optional
 from functools import partial
 
-from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
+from ..test_framework import (TestFramework, register_framework)
+from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
+                         StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput)
 from .. import process
 from .generic import get_generic_parser
 from . import common
 
 logger = logging.getLogger('TestExplorer.doctest-cpp')
 parser_logger = logging.getLogger('TestExplorerParser.doctest-cpp')
+
 
 def clean_xml_content(content, tag):
     # Remove first and last entry; will be line jump and indentation whitespace, ignored.
@@ -27,8 +29,10 @@ def clean_xml_content(content, tag):
         return ''
     return ''.join(returned_content[1:-1])
 
+
 # The content inside these tags is controlled by doctest, don't assume it is output.
 controlled_tags = ['Info', 'Original', 'Expanded', 'Exception']
+
 
 class ResultsStreamHandler(xml.sax.handler.ContentHandler):
     def __init__(self, test_data: TestData, framework: str, executable: str, test_ids: List[str]):
@@ -120,8 +124,14 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             subcases = ''.join([f'  in subcase "{s["name"]}"\n' for s in self.current_sections])
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
 
-            self.test_data.notify_test_output(TestOutput(self.current_test,
-                f'{sep}{result}\n  at {file}:{line}\n{subcases}{infos}\nExpected: {check}({original})\nActual:   {expanded}\n{sep}'))
+            self.test_data.notify_test_output(
+                TestOutput(self.current_test, sep +
+                           f'{result}\n' +
+                           f'  at {file}:{line}\n' +
+                           f'{subcases}{infos}\n' +
+                           f'Expected: {check}({original})\n' +
+                           f'Actual:   {expanded}\n' +
+                           sep))
 
             self.has_output = True
             self.current_expression = None
@@ -138,7 +148,7 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
 
             self.test_data.notify_test_output(TestOutput(self.current_test,
-                f'{sep}{result}\n{subcases}{infos}{message}\n{sep}'))
+                                                         f'{sep}{result}\n{subcases}{infos}{message}\n{sep}'))
 
             self.has_output = True
             self.current_exception = None
@@ -164,19 +174,20 @@ class ResultsStreamHandler(xml.sax.handler.ContentHandler):
                     self.test_data.notify_test_output(TestOutput(self.current_test, ''.join(content[1:])))
                     del content[1:]
 
+
 class DoctestCpp(TestFramework):
     def __init__(self, test_data: TestData,
-                       project_root_dir: str,
-                       framework_id: str = '',
-                       executable_pattern: str = '*',
-                       env: Dict[str,str] = {},
-                       cwd: Optional[str] = None,
-                       args: List[str] = [],
-                       discover_args: List[str] = [],
-                       run_args: List[str] = [],
-                       path_prefix_style: str = 'full',
-                       custom_prefix: Optional[str] = None,
-                       parser: str = 'default'):
+                 project_root_dir: str,
+                 framework_id: str = '',
+                 executable_pattern: str = '*',
+                 env: Dict[str, str] = {},
+                 cwd: Optional[str] = None,
+                 args: List[str] = [],
+                 discover_args: List[str] = [],
+                 run_args: List[str] = [],
+                 path_prefix_style: str = 'full',
+                 custom_prefix: Optional[str] = None,
+                 parser: str = 'default'):
         super().__init__(test_data, project_root_dir)
         self.test_data = test_data
         self.framework_id = framework_id
@@ -231,7 +242,8 @@ class DoctestCpp(TestFramework):
             executables = [e for e in glob.glob(self.executable_pattern)]
             os.chdir(old_cwd)
             if len(executables) == 0:
-                logger.warning(f'no executable found with pattern "{self.executable_pattern}" (cwd: {self.project_root_dir})')
+                logger.warning(f'no executable found with pattern "{self.executable_pattern}" ' +
+                               f'(cwd: {self.project_root_dir})')
 
             for executable in executables:
                 tests += run_discovery(executable)
@@ -292,7 +304,7 @@ class DoctestCpp(TestFramework):
         def run_tests(executable, test_ids):
             logger.debug('starting tests from {}: "{}"'.format(executable, '" "'.join(test_ids)))
 
-            test_filters = ','.join(test.replace(',','\\,') for test in test_ids)
+            test_filters = ','.join(test.replace(',', '\\,') for test in test_ids)
             exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
             run_args = [exe, '-tc=' + test_filters]
 
@@ -309,8 +321,8 @@ class DoctestCpp(TestFramework):
                 parser.feed(line)
 
             process.get_output_streamed(run_args + self.args,
-                partial(stream_reader, parser), self.test_data.stop_tests_event,
-                queue='doctest-cpp', ignore_errors=True, env=self.env, cwd=cwd)
+                                        partial(stream_reader, parser), self.test_data.stop_tests_event,
+                                        queue='doctest-cpp', ignore_errors=True, env=self.env, cwd=cwd)
 
         for executable, test_ids in grouped_tests.items():
             run_tests(executable, test_ids)

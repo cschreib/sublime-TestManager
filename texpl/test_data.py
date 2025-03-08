@@ -11,7 +11,8 @@ from contextlib import closing
 
 ROOT_NAME = ''
 TEST_SEPARATOR = '/'
-MIN_COMMIT_INTERVAL = 0.5 # seconds
+MIN_COMMIT_INTERVAL = 0.5  # seconds
+
 
 class TestStatus(enum.Enum):
     # Must be sorted by priority
@@ -41,14 +42,17 @@ def date_from_db(data: Optional[str]) -> Optional[datetime]:
 
     return datetime.fromisoformat(data)
 
+
 def test_name_to_path(name: str):
     path = name.split(TEST_SEPARATOR)
     if len(path) == 1 and len(path[0]) == 0:
         path = []
     return path
 
+
 def test_path_to_name(path: List[str]):
     return TEST_SEPARATOR.join(path)
+
 
 def parent_names_in_path(path: List[str]):
     return [test_path_to_name(path[:i]) for i in range(1, len(path))]
@@ -69,14 +73,16 @@ class TestLocation:
                             file=row['location_file'],
                             line=row['location_line'])
 
+
 class DiscoveryError(Exception):
-    def __init__(self, message, details : Optional[List[str]] = None):
+    def __init__(self, message, details: Optional[List[str]] = None):
         super().__init__(message)
         self.details = details
 
 
 class DiscoveredTest:
-    def __init__(self, full_name: List[str] = [], discovery_id = 0, framework_id='', run_id='', report_id='', location=TestLocation()):
+    def __init__(self, full_name: List[str] = [], discovery_id=0,
+                 framework_id='', run_id='', report_id='', location=TestLocation()):
         self.full_name = full_name
         self.discovery_id = discovery_id
         self.framework_id = framework_id
@@ -144,22 +150,21 @@ class TestItem:
                         last_run=date_from_db(row['last_run']),
                         children=None if row['leaf'] else {})
 
-
     def save(self, con: sqlite3.Connection):
         con.execute('INSERT OR REPLACE INTO tests VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            (self.full_name,
-            self.name,
-            self.discovery_id,
-            self.framework_id,
-            self.run_id,
-            self.report_id,
-            self.location.executable if self.location is not None else None,
-            self.location.file if self.location is not None else None,
-            self.location.line if self.location is not None else None,
-            self.last_status.name.lower(),
-            self.run_status.name.lower(),
-            self.last_run,
-            self.children is None))
+                    (self.full_name,
+                     self.name,
+                     self.discovery_id,
+                     self.framework_id,
+                     self.run_id,
+                     self.report_id,
+                     self.location.executable if self.location is not None else None,
+                     self.location.file if self.location is not None else None,
+                     self.location.line if self.location is not None else None,
+                     self.last_status.name.lower(),
+                     self.run_status.name.lower(),
+                     self.last_run,
+                     self.children is None))
 
         if self.children is not None:
             for c in self.children.values():
@@ -334,7 +339,8 @@ class TestList:
         if item.location.executable not in self.report_id_lookup[item.framework_id]:
             self.report_id_lookup[item.framework_id][item.location.executable] = {}
 
-        self.report_id_lookup[item.framework_id][item.location.executable][item.report_id] = test_name_to_path(item.full_name)
+        self.report_id_lookup[item.framework_id][item.location.executable][item.report_id] = test_name_to_path(
+            item.full_name)
 
     def make_report_id_lookup(self, item: TestItem):
         if item.children is None:
@@ -433,7 +439,7 @@ class TestList:
         with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
             with con:
                 con.execute('UPDATE test_ouputs SET output=? WHERE full_name=?',
-                    (output, test_name))
+                            (output, test_name))
 
     def get_test_output(self, item_path: List[str]) -> str:
         test_name = test_path_to_name(item_path)
@@ -443,7 +449,7 @@ class TestList:
         with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
             with con:
                 output = con.execute('SELECT output FROM test_ouputs WHERE full_name=?',
-                    (test_path_to_name(item_path),)).fetchone()
+                                     (test_path_to_name(item_path),)).fetchone()
 
                 return '' if output is None else output[0]
 
@@ -486,13 +492,13 @@ class TestMetaData:
                         running BOOL
                         )""")
                     con.execute('INSERT INTO meta VALUES (?,?)',
-                        (self.last_discovery, self.running))
+                                (self.last_discovery, self.running))
                 else:
                     con.execute("""UPDATE meta SET
                         last_discovery=?,
                         running=?
                         """,
-                        (self.last_discovery, self.running))
+                                (self.last_discovery, self.running))
 
 
 def clear_test_data(location):

@@ -26,6 +26,7 @@ NO_FRAMEWORK_CONFIGURED = ("No test framework is currently configured.")
 
 MAX_ERROR_LENGTH = 256
 
+
 class TestExplorerResetCommand(WindowCommand, TestDataHelper):
 
     def is_visible(self):

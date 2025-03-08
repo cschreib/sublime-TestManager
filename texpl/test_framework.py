@@ -5,6 +5,7 @@ from .test_data import DiscoveredTest, TestData
 
 registry: Dict[str, Callable] = {}
 
+
 def register_framework(name: str, factory_function: Callable):
     global registry
     registry[name] = factory_function

@@ -5,14 +5,16 @@ import json
 from typing import Dict, List, Optional
 from tempfile import TemporaryDirectory
 
-from ..test_framework import TestFramework, register_framework
-from ..test_data import DiscoveredTest, DiscoveryError, TestLocation, TestData, StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput
+from ..test_framework import (TestFramework, register_framework)
+from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
+                         StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput)
 from .. import process
 from .generic import get_generic_parser
 from . import common
 
 logger = logging.getLogger('TestExplorer.gtest')
 parser_logger = logging.getLogger('TestExplorerParser.gtest')
+
 
 class OutputParser:
     def __init__(self, test_data: TestData, framework: str, executable: str):
@@ -29,7 +31,8 @@ class OutputParser:
         parser_logger.debug(line.rstrip())
 
         if line.startswith('[ RUN      ] '):
-            self.current_test = self.test_list.find_test_by_report_id(self.framework, self.executable, self.parse_test_id(line))
+            self.current_test = self.test_list.find_test_by_report_id(
+                self.framework, self.executable, self.parse_test_id(line))
             if self.current_test is None:
                 return
 
@@ -60,17 +63,17 @@ class OutputParser:
 
 class GoogleTest(TestFramework):
     def __init__(self, test_data: TestData,
-                       project_root_dir: str,
-                       framework_id: str = '',
-                       executable_pattern: str = '*',
-                       env: Dict[str,str] = {},
-                       cwd: Optional[str] = None,
-                       args: List[str] = [],
-                       discover_args: List[str] = [],
-                       run_args: List[str] = [],
-                       path_prefix_style: str = 'full',
-                       custom_prefix: Optional[str] = None,
-                       parser: str = 'default'):
+                 project_root_dir: str,
+                 framework_id: str = '',
+                 executable_pattern: str = '*',
+                 env: Dict[str, str] = {},
+                 cwd: Optional[str] = None,
+                 args: List[str] = [],
+                 discover_args: List[str] = [],
+                 run_args: List[str] = [],
+                 path_prefix_style: str = 'full',
+                 custom_prefix: Optional[str] = None,
+                 parser: str = 'default'):
         super().__init__(test_data, project_root_dir)
         self.test_data = test_data
         self.framework_id = framework_id
@@ -127,7 +130,8 @@ class GoogleTest(TestFramework):
                 executables = [e for e in glob.glob(self.executable_pattern)]
                 os.chdir(old_cwd)
                 if len(executables) == 0:
-                    logger.warning(f'no executable found with pattern "{self.executable_pattern}" (cwd: {self.project_root_dir})')
+                    logger.warning(f'no executable found with pattern "{self.executable_pattern}" ' +
+                                   f'(cwd: {self.project_root_dir})')
 
                 for executable in executables:
                     tests += run_discovery(executable)
@@ -204,8 +208,9 @@ class GoogleTest(TestFramework):
             if parser is None:
                 parser = OutputParser(self.test_data, self.framework_id, executable)
 
-            process.get_output_streamed(run_args + self.args + self.run_args, parser.feed, self.test_data.stop_tests_event,
-                queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
+            process.get_output_streamed(run_args + self.args + self.run_args,
+                                        parser.feed, self.test_data.stop_tests_event,
+                                        queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
 
         for executable, test_ids in grouped_tests.items():
             run_tests(executable, test_ids)

@@ -16,6 +16,7 @@ logger = logging.getLogger('TestExplorer.output')
 
 TEST_EXPLORER_TEST_OUTPUT_TITLE = '*test-output*: '
 
+
 class TestExplorerOpenSelectedOutput(TextCommand, TestExplorerTextCmd):
 
     def is_visible(self):
@@ -162,6 +163,3 @@ class TestExplorerOutputEventListener(ViewEventListener, SettingsHelper):
 
             self.view.run_command('test_explorer_output_refresh')
             sublime.set_timeout(partial(refresh_loop, self.view, refresh_interval), refresh_interval)
-
-
-

@@ -44,17 +44,22 @@ def find_views_for_data(data_path):
 
     return views
 
+
 def find_views_for_test(data_path, test):
     views = []
     for window in sublime.windows():
         for view in window.views():
             s = view.settings()
-            if 'test_view' in s and s['test_view'] == 'output' and s['test_data_full_path'] == data_path and s['test_output'] == test:
+            if 'test_view' in s and \
+                    s['test_view'] == 'output' and \
+                    s['test_data_full_path'] == data_path and \
+                    s['test_output'] == test:
                 views.append(view)
 
     return views
 
 # progress helper
+
 
 class StatusSpinner(object):
 
@@ -160,9 +165,9 @@ def readable_date_delta(from_date: datetime, until_date: Optional[datetime] = No
     delta_minutes = delta_minutes % 60
 
     def plur(it: int):
-        return '' if it==1 else 's'
+        return '' if it == 1 else 's'
 
-    ## show a fuzzy but useful approximation of the time delta
+    # show a fuzzy but useful approximation of the time delta
     if delta.days:
         return '%d day%s ago' % (delta.days, plur(delta.days))
     elif delta_hours:
@@ -174,7 +179,9 @@ def readable_date_delta(from_date: datetime, until_date: Optional[datetime] = No
 
 # settings helpers
 
+
 global_settings = {}
+
 
 class SettingsHelper(object):
 

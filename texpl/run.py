@@ -23,6 +23,7 @@ TEST_STOP_CONFIRM_DIALOG = ("You are about to stop all currently-running tests. 
 CANNOT_START_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or stop the tests "
                                      "before running new tests.")
 
+
 class TestRunHelper(SettingsHelper):
     def get_frameworks(self, data: TestData, project: str):
         frameworks_json = self.get_setting('frameworks')
@@ -59,7 +60,8 @@ class TestRunHelper(SettingsHelper):
                 else:
                     assert item.location is not None
                     test_paths.append(path)
-                    test_ids.setdefault(item.framework_id, {}).setdefault(item.location.executable, []).append(item.run_id)
+                    test_ids.setdefault(item.framework_id, {}).setdefault(
+                        item.location.executable, []).append(item.run_id)
 
             for test in tests:
                 logger.debug(f'running {test}...')
@@ -101,6 +103,7 @@ class TestRunHelper(SettingsHelper):
 
         except Exception as e:
             logger.error("error when running tests: %s\n%s", e, traceback.format_exc())
+
 
 class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, TestRunHelper, TestExplorerTextCmd):
 
@@ -163,11 +166,13 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
             if len(choices) == 0:
                 return
 
-            self.window.show_quick_panel(choices, partial(self.run_one_test, data, test_list, frameworks, choices), sublime.MONOSPACE_FONT)
+            self.window.show_quick_panel(choices, partial(self.run_one_test, data,
+                                                          test_list, frameworks, choices), sublime.MONOSPACE_FONT)
         elif start == "all":
             sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, ['']))
 
-    def run_one_test(self, data: TestData, test_list: TestList, frameworks: List[TestFramework], choices: List[str], test_id: int):
+    def run_one_test(self, data: TestData, test_list: TestList,
+                     frameworks: List[TestFramework], choices: List[str], test_id: int):
         sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, [choices[test_id]]))
 
 

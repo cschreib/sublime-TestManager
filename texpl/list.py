@@ -6,11 +6,12 @@ from functools import partial
 from typing import Callable, Optional, List, Dict, Tuple
 
 import sublime
-from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, EventListener
+from sublime_plugin import (ApplicationCommand, WindowCommand, TextCommand, EventListener)
 
-from .util import find_views_for_data, SettingsHelper, readable_date_delta
+from .util import (find_views_for_data, SettingsHelper, readable_date_delta)
 from .helpers import TestDataHelper
-from .test_data import ROOT_NAME, TestList, get_test_stats, TestItem, TestData, RunStatus, test_name_to_path, test_path_to_name
+from .test_data import (ROOT_NAME, TestList, get_test_stats, TestItem, TestData,
+                        RunStatus, test_name_to_path, test_path_to_name)
 
 
 logger = logging.getLogger('TestExplorer.status')
@@ -99,9 +100,10 @@ TEST_EXPLORER_HELP = """
 #
 # Legend:"""
 
+
 class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
 
-    def build_list(self, data: TestData) -> Tuple[str, Dict[str,int]]:
+    def build_list(self, data: TestData) -> Tuple[str, Dict[str, int]]:
         status = ''
         line_count = 0
         structure = {}
@@ -263,7 +265,9 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
     def item_depth(self, path: List[str]) -> int:
         return len(path)
 
-    def build_items(self, test_list: TestList, item: TestItem, focus_path : List[str], sort_key: Callable, visibility=None, max_depth=0, hide_parent=False) -> List[Tuple[TestItem, str]]:
+    def build_items(self, test_list: TestList, item: TestItem,
+                    focus_path: List[str], sort_key: Callable, visibility=None,
+                    max_depth=0, hide_parent=False) -> List[Tuple[TestItem, str]]:
         lines = []
 
         if len(focus_path) != 0 and item.name != focus_path[0]:
@@ -282,7 +286,8 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
             children.sort(key=sort_key)
 
             for child in children:
-                lines += self.build_items(test_list, child, focus_path[1:], sort_key, visibility=visibility, max_depth=max_depth)
+                lines += self.build_items(test_list, child,
+                                          focus_path[1:], sort_key, visibility=visibility, max_depth=max_depth)
         else:
             if not hide_parent and self.item_is_visible(item, visibility=visibility):
                 lines.append((item, self.build_item(item, depth=depth)))
@@ -321,9 +326,11 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         else:
             return f'{line}{padding} (last-run:{self.date_to_string(item.last_run)})'
 
-    def build_tests(self, test_list: TestList, focus_path: List[str], sort_key: Callable, visibility=None, max_depth=0, column_width_percentile=1.0, column_width_factor=1.0):
+    def build_tests(self, test_list: TestList, focus_path: List[str],
+                    sort_key: Callable, visibility=None, max_depth=0,
+                    column_width_percentile=1.0, column_width_factor=1.0):
         lines = self.build_items(test_list, test_list.root, [ROOT_NAME] + focus_path, sort_key,
-            visibility=visibility, max_depth=max_depth, hide_parent=True)
+                                 visibility=visibility, max_depth=max_depth, hide_parent=True)
         if len(lines) == 0:
             return [], 0
 
@@ -382,14 +389,14 @@ class TestExplorerTextCmd:
     def get_all_node_regions(self):
         return self.view.find_by_selector('meta.test-explorer.test-list.node')
 
-    def get_item_in_region(self, region: sublime.Region, line_map: Optional[Dict[str,str]] = None) -> str:
+    def get_item_in_region(self, region: sublime.Region, line_map: Optional[Dict[str, str]] = None) -> str:
         if line_map is None:
             line_map = self.view.settings().get('test_structure')['line_tests']
             assert line_map is not None
 
         return line_map[str(self.view.rowcol(region.a)[0])]
 
-    def get_item_line(self, item_name: str, test_map: Optional[Dict[str,int]] = None) -> int:
+    def get_item_line(self, item_name: str, test_map: Optional[Dict[str, int]] = None) -> int:
         if test_map is None:
             test_map = self.view.settings().get('test_structure')['test_lines']
             assert test_map is not None
@@ -605,7 +612,8 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
                 self.view.run_command('test_explorer_replace', {'goto': goto, 'tests': tests, 'no_scroll': no_scroll})
             else:
                 tests = self.update_list(data, self.view.settings().get('test_structure'), hints)
-                self.view.run_command('test_explorer_partial_replace', {'goto': goto, 'tests': tests, 'no_scroll': no_scroll})
+                self.view.run_command('test_explorer_partial_replace', {
+                                      'goto': goto, 'tests': tests, 'no_scroll': no_scroll})
 
         except Exception as e:
             logger.error('error building test list: {}'.format(str(e)))
@@ -714,7 +722,7 @@ class TestExplorerSetRootCommand(TextCommand, TestExplorerTextCmd, TestDataHelpe
     def is_visible(self):
         return False
 
-    def run(self, edit, parent : Optional[bool] = None):
+    def run(self, edit, parent: Optional[bool] = None):
         data = self.get_test_data()
         if not data:
             return
