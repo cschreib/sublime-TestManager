@@ -155,28 +155,26 @@ class PyTest(TestFramework):
         return self.parse_discovery(output, cwd)
 
     def parse_discovered_test(self, test: Dict, working_directory: str):
-        # Make file path relative to project directory.
-        file = os.path.relpath(os.path.join(working_directory, test['file']), start=self.project_root_dir)
+        # This is where the test is defined.
+        file = common.change_parent_dir(test['file'],
+                                        old_cwd=working_directory,
+                                        new_cwd=self.project_root_dir)
 
-        # Make full name relative to project directory.
-        # NB: the 'discovery_file' here points to the file where the test was discovered.
-        # The 'file' variable above points to the file where the test is defined.
-        # They are usually the same, except when tests are imported.
-        path = test['name'].split('::')
-        discovery_file = path[0]
-        discovery_file = os.path.normpath(os.path.relpath(os.path.join(
-            working_directory, discovery_file), start=self.project_root_dir))
-        path = path[1:]
+        # This is where the test was discovered.
+        # This is usually the same as 'file', except when tests are imported.
+        test_path = test['name'].split('::')
+        discovery_file = common.change_parent_dir(test_path[0],
+                                                  old_cwd=working_directory,
+                                                  new_cwd=self.project_root_dir)
+        test_path = test_path[1:]
 
-        if self.path_prefix_style == 'full':
-            path = discovery_file.split(os.sep) + path
-        elif self.path_prefix_style == 'basename':
-            path = [os.path.basename(discovery_file)] + path
-        elif self.path_prefix_style == 'none':
-            pass
+        path = []
 
         if self.custom_prefix is not None:
-            path = self.custom_prefix.split(TEST_SEPARATOR) + path
+            path += self.custom_prefix.split(TEST_SEPARATOR)
+
+        path += common.get_file_prefix(discovery_file, path_prefix_style=self.path_prefix_style)
+        path += test_path
 
         run_id = test['name']
         report_id = run_id

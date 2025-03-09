@@ -1,6 +1,5 @@
 import os
 import logging
-import glob
 import xml.etree.ElementTree as ET
 import xml.sax
 from typing import Dict, List, Optional
@@ -211,19 +210,13 @@ class Catch2(TestFramework):
                 errors.append(e.details if e.details else str(e))
                 return []
 
-        if '*' in self.executable_pattern:
-            old_cwd = os.getcwd()
-            os.chdir(self.project_root_dir)
-            executables = [e for e in glob.glob(self.executable_pattern)]
-            os.chdir(old_cwd)
-            if len(executables) == 0:
-                logger.warning(f'no executable found with pattern "{self.executable_pattern}" ' +
-                               f'(cwd: {self.project_root_dir})')
+        executables = common.discover_executables(self.executable_pattern, cwd=self.project_root_dir)
+        if len(executables) == 0:
+            logger.warning(f'no executable found with pattern "{self.executable_pattern}" ' +
+                           f'(cwd: {self.project_root_dir})')
 
-            for executable in executables:
-                tests += run_discovery(executable)
-        else:
-            tests += run_discovery(self.executable_pattern)
+        for executable in executables:
+            tests += run_discovery(executable)
 
         if errors:
             raise DiscoveryError('Error when discovering tests. See panel for more information', details=errors)
@@ -231,7 +224,6 @@ class Catch2(TestFramework):
         return tests
 
     def parse_discovered_test(self, test: ET.Element, executable: str):
-        # Make file path relative to project directory.
         location = test.find('SourceInfo')
         assert location is not None
 
@@ -240,6 +232,7 @@ class Catch2(TestFramework):
         file = file.text
         assert file is not None
 
+        # Catch2 reports absolute paths; make it relative to the project directory.
         file = os.path.relpath(file, start=self.project_root_dir)
 
         line = location.find('Line')
@@ -252,12 +245,7 @@ class Catch2(TestFramework):
         if self.custom_prefix is not None:
             path += self.custom_prefix.split(TEST_SEPARATOR)
 
-        if self.path_prefix_style == 'full':
-            path += os.path.normpath(executable).split(os.sep)
-        elif self.path_prefix_style == 'basename':
-            path.append(os.path.basename(executable))
-        elif self.path_prefix_style == 'none':
-            pass
+        path += common.get_file_prefix(executable, path_prefix_style=self.path_prefix_style)
 
         fixture = test.find('ClassName')
         if fixture is not None and fixture.text is not None:

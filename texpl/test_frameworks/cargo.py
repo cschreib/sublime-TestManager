@@ -139,23 +139,16 @@ class Cargo(TestFramework):
         return self.parse_discovery(output, cwd)
 
     def parse_discovered_test(self, json_data: dict, working_directory: str):
-        # Make file path relative to project directory.
+        discovery_file = common.change_parent_dir(json_data['source_path'],
+                                                  old_cwd=working_directory,
+                                                  new_cwd=self.project_root_dir)
+
         path = []
 
         if self.custom_prefix is not None:
             path += self.custom_prefix.split(TEST_SEPARATOR)
 
-        discovery_file = json_data['source_path']
-        discovery_file = os.path.normpath(os.path.relpath(os.path.join(
-            working_directory, discovery_file), start=self.project_root_dir))
-
-        if self.path_prefix_style == 'full':
-            path += os.path.normpath(discovery_file).split(os.sep)
-        elif self.path_prefix_style == 'basename':
-            path.append(os.path.basename(discovery_file))
-        elif self.path_prefix_style == 'none':
-            pass
-
+        path += common.get_file_prefix(discovery_file, path_prefix_style=self.path_prefix_style)
         path += json_data['name'].split('::')
 
         run_id = json_data['name']

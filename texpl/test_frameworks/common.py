@@ -1,8 +1,10 @@
+import sys
 from typing import Optional, List
 import os
 import xml.sax
 from abc import ABC, abstractmethod
 import logging
+import glob
 
 from ..test_data import TestData
 from .teamcity import OutputParser as TeamcityOutputParser
@@ -21,6 +23,39 @@ def get_working_directory(user_cwd: Optional[str], project_root_dir: str):
 
 def make_executable_path(executable: str, project_root_dir: str):
     return os.path.join(project_root_dir, executable) if not os.path.isabs(executable) else executable
+
+
+def get_file_prefix(path: str, path_prefix_style='full') -> List[str]:
+    if path_prefix_style == 'full':
+        return os.path.normpath(path).split(os.sep)
+    elif path_prefix_style == 'basename':
+        return [os.path.basename(path)]
+    elif path_prefix_style == 'none':
+        return []
+    else:
+        raise Exception(f"Unimplemented path style '{path_prefix_style}'")
+
+
+def change_parent_dir(path: str, old_cwd='.', new_cwd='.'):
+    return os.path.normpath(os.path.relpath(os.path.join(old_cwd, path), start=new_cwd))
+
+
+def is_executable(path: str):
+    if sys.platform == 'Windows':
+        return os.path.splitext(path)[1].lower() == '.exe'
+    else:
+        return (os.stat(path).st_mode & 0o111) != 0
+
+
+def discover_executables(executable_pattern: str, cwd='.') -> List[str]:
+    if '*' in executable_pattern:
+        old_cwd = os.getcwd()
+        os.chdir(cwd)
+        executables = [e for e in glob.glob(executable_pattern, recursive=True) if is_executable(e)]
+        os.chdir(old_cwd)
+        return executables
+    else:
+        return [executable_pattern]
 
 
 def get_generic_parser(parser: str, test_data: TestData, framework_id: str, executable: str):
