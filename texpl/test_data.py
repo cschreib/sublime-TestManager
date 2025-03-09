@@ -305,6 +305,8 @@ class TestList:
                         )""")
 
                 if len(refresh_hints) == 0:
+                    con.execute("""DELETE FROM tests""")
+
                     assert self.root.children is not None
                     for c in self.root.children.values():
                         c.save_children(con)
