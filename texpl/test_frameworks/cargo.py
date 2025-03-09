@@ -13,6 +13,21 @@ logger = logging.getLogger('TestExplorer.cargo')
 parser_logger = logging.getLogger('TestExplorerParser.cargo')
 
 
+def get_json(line: str):
+    if not line.startswith('{'):
+        return None
+
+    try:
+        json_line = json.loads(line)
+    except:
+        return None
+
+    if 'type' not in json_line or 'event' not in json_line:
+        return None
+
+    return json_line
+
+
 class OutputParser:
     def __init__(self, test_data: TestData, framework: str):
         self.test_data = test_data
@@ -20,24 +35,10 @@ class OutputParser:
         self.framework = framework
         self.current_test: Optional[List[str]] = None
 
-    def get_json(self, line: str):
-        if not line.startswith('{'):
-            return None
-
-        try:
-            json_line = json.loads(line)
-        except:
-            return None
-
-        if 'type' not in json_line or 'event' not in json_line:
-            return None
-
-        return json_line
-
     def feed(self, line: str):
         parser_logger.debug(line.rstrip())
 
-        json_line = self.get_json(line)
+        json_line = get_json(line)
         if json_line is None:
             if self.current_test:
                 self.test_data.notify_test_output(TestOutput(self.current_test, line))
@@ -160,15 +161,8 @@ class Cargo(TestFramework):
     def parse_discovery(self, output: str, working_directory: str) -> List[DiscoveredTest]:
         tests = []
         for line in output.split('\n'):
-            if not line.startswith('{'):
-                continue
-
-            try:
-                json_line = json.loads(line)
-            except:
-                continue
-
-            if 'type' not in json_line or 'event' not in json_line:
+            json_line = get_json(line)
+            if json_line is None:
                 continue
 
             if json_line['type'] != 'test' or json_line['event'] != 'discovered':
