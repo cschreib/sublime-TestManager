@@ -110,7 +110,7 @@ Each test is described by the following fields:
  - `framework_id`: This is the unique ID of the framework instance from which this test (or group) was discovered. This is used to link the test to the right `TestFramework` class, e.g., for running the test.
  - `run_id`: This is the ID of the test to use when selecting this test for running. For example, the specific format to use when selecting this test on the command-line. This is normally the same as `report_id`. For groups, this is empty.
  - `report_id`: This is the ID of the test as it appears in the test report output by the test framework. This is normally the same as `run_id`. Some odd combinations of frameworks and reporters may result in different IDs being used for running and reporting (e.g., when using the TeamCity reporter, some characters are forbidden in the test name and are replaced by placeholders). For groups, this is empty.
- - `location`: This describes the file and line number at which the test definition was found. For groups, this is `None`. This is used for user navigation ("go to this test").
+ - `location`: This describes the executable, file, and line number at which the test definition was found. For groups, this is `None`. This is used for user navigation ("go to this test").
  - `last_status`: This is the outcome (pass/fail) of the test for its last run. For groups, this is computed from all the children.
  - `run_status`: This is the current state of the test; whether it is running or queued. This does not hold the test outcome (pass/fail). For groups, this is computed from all the children.
  - `last_run`: This is the date and time at which the test was last run. If the test was never run, this is `None`. For groups, this is `None`.
@@ -163,7 +163,7 @@ class YourTestFramework(TestFramework):
         pass
 ```
 
-You must then call:
+You must then call somewhere:
 
 ```python
 register_framework("name-of-your-framework", your_framework_factory_function)
