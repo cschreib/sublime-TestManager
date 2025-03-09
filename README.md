@@ -179,6 +179,8 @@ def your_framework_factory_function(test_data: TestData, project_root_dir: str, 
 
 The builtin framework class for Google Test is a good example to emulate, and has one of the simplest parser. See `test_frameworks/gtest.py`.
 
+You can then either publish this framework as a separate Sublime Text plugin, or offer to contribute it to this repository to make it available by default.
+
 
 ## Custom test status colors
 
