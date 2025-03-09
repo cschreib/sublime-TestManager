@@ -162,7 +162,7 @@ class DoctestCpp(TestFramework):
 
     @staticmethod
     def from_json(test_data: TestData, project_root_dir: str, json_data: Dict):
-        assert json_data['type'] == 'catch2'
+        assert json_data['type'] == 'doctest-cpp'
         return DoctestCpp(test_data=test_data,
                           project_root_dir=project_root_dir,
                           framework_id=json_data['id'],
