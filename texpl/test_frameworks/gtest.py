@@ -96,7 +96,7 @@ class GoogleTest(TestFramework):
                           env=json_data.get('env', {}),
                           cwd=json_data.get('cwd', None),
                           args=json_data.get('args', []),
-                          discover_args=json_data.get('discover_args', []),
+                          discover_args=json_data.get('discover_args', ['--gtest_list_tests']),
                           run_args=json_data.get('run_args', []),
                           path_prefix_style=json_data.get('path_prefix_style', 'full'),
                           custom_prefix=json_data.get('custom_prefix', None),
@@ -115,8 +115,8 @@ class GoogleTest(TestFramework):
             def run_discovery(executable):
                 output_file = os.path.join(temp_dir, 'output.json')
                 exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
-                discover_args = [exe, f'--gtest_output=json:{output_file}', '--gtest_list_tests']
-                process.get_output(discover_args + self.args + self.discover_args, env=self.env, cwd=cwd)
+                discover_args = [exe] + self.discover_args + self.args + [f'--gtest_output=json:{output_file}']
+                process.get_output(discover_args, env=self.env, cwd=cwd)
                 try:
                     return self.parse_discovery(output_file, executable)
                 except DiscoveryError as e:
@@ -197,7 +197,6 @@ class GoogleTest(TestFramework):
 
             test_filters = ':'.join(test_ids)
             exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
-            run_args = [exe, '--gtest_filter=' + test_filters]
 
             parser = common.get_generic_parser(parser=self.parser,
                                                test_data=self.test_data,
@@ -207,7 +206,8 @@ class GoogleTest(TestFramework):
             if parser is None:
                 parser = OutputParser(self.test_data, self.framework_id, executable)
 
-            process.get_output_streamed(run_args + self.args + self.run_args,
+            run_args = [exe] + self.run_args + self.args + ['--gtest_filter=' + test_filters]
+            process.get_output_streamed(run_args,
                                         parser.feed, self.test_data.stop_tests_event,
                                         queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
 

@@ -20,9 +20,6 @@ class OutputParser:
         self.framework = framework
         self.current_test: Optional[List[str]] = None
 
-    def parse_test_id(self, line: str):
-        return line[12:].strip().split(' ')[0]
-
     def get_json(self, line: str):
         if not line.startswith('{'):
             return None
@@ -113,8 +110,12 @@ class Cargo(TestFramework):
                      env=json_data.get('env', {}),
                      cwd=json_data.get('cwd', None),
                      args=json_data.get('args', []),
-                     discover_args=json_data.get('discover_args', []),
-                     run_args=json_data.get('run_args', []),
+                     discover_args=json_data.get('discover_args',
+                                                 ['test', '--', '--list', '--test-threads=1',
+                                                  '--nocapture', '--format=json', '-Z', 'unstable-options']),
+                     run_args=json_data.get('run_args',
+                                            ['test', '--', '--test-threads=1', '--nocapture',
+                                             '--exact', '--format=json', '-Z', 'unstable-options']),
                      path_prefix_style=json_data.get('path_prefix_style', 'full'),
                      custom_prefix=json_data.get('custom_prefix', None),
                      parser=json_data.get('parser', 'default'))
@@ -133,9 +134,8 @@ class Cargo(TestFramework):
 
     def discover(self) -> List[DiscoveredTest]:
         cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
-        discover_args = self.get_cargo() + ['test', '--', '--list', '--test-threads=1',
-                                            '--nocapture', '--format=json', '-Z', 'unstable-options']
-        output = process.get_output(discover_args + self.args + self.discover_args, env=self.env, cwd=cwd)
+        discover_args = self.get_cargo() + self.discover_args + self.args
+        output = process.get_output(discover_args, env=self.env, cwd=cwd)
         return self.parse_discovery(output, cwd)
 
     def parse_discovered_test(self, json_data: dict, working_directory: str):
@@ -191,8 +191,6 @@ class Cargo(TestFramework):
         assert len(grouped_tests) == 1
 
         test_ids = [test for tests in grouped_tests.values() for test in tests]
-        run_args = self.get_cargo() + ['test', '--', '--test-threads=1',
-                                       '--nocapture', '--format=json', '-Z', 'unstable-options'] + test_ids
 
         parser = common.get_generic_parser(parser=self.parser,
                                            test_data=self.test_data,
@@ -202,7 +200,8 @@ class Cargo(TestFramework):
         if parser is None:
             parser = OutputParser(self.test_data, self.framework_id)
 
-        process.get_output_streamed(run_args + self.args + self.run_args,
+        run_args = self.get_cargo() + self.run_args + self.args + test_ids
+        process.get_output_streamed(run_args,
                                     parser.feed, self.test_data.stop_tests_event,
                                     queue='cargo', ignore_errors=True, env=self.env, cwd=cwd)
 

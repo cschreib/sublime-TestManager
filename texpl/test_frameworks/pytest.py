@@ -119,7 +119,7 @@ class PyTest(TestFramework):
                       env=json_data.get('env', {}),
                       cwd=json_data.get('cwd', None),
                       args=json_data.get('args', []),
-                      discover_args=json_data.get('discover_args', []),
+                      discover_args=json_data.get('discover_args', ['--collect-only']),
                       run_args=json_data.get('run_args', []),
                       path_prefix_style=json_data.get('path_prefix_style', 'full'),
                       custom_prefix=json_data.get('custom_prefix', None),
@@ -128,11 +128,13 @@ class PyTest(TestFramework):
     def get_id(self):
         return self.framework_id
 
-    def get_python(self):
+    def get_pytest(self):
         if not os.path.isabs(self.python) and len(os.path.dirname(self.python)) > 0:
-            return os.path.join(self.project_root_dir, self.python)
+            python = os.path.join(self.project_root_dir, self.python)
+        else:
+            python = self.python
 
-        return self.python
+        return [python, '-m', 'pytest']
 
     def get_env(self):
         # Default discovery output of pytest does not contain file & line numbers.
@@ -148,9 +150,8 @@ class PyTest(TestFramework):
         env = self.get_env()
         cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
-        discover_args = [self.get_python(), '-m', 'pytest', '--collect-only']
-        output = process.get_output(discover_args + self.args + self.discover_args,
-                                    env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
+        discover_args = self.get_pytest() + self.discover_args + self.args
+        output = process.get_output(discover_args, env=env, cwd=cwd, success_codes=PYTEST_SUCCESS_CODES)
         return self.parse_discovery(output, cwd)
 
     def parse_discovered_test(self, test: Dict, working_directory: str):
@@ -209,8 +210,7 @@ class PyTest(TestFramework):
         cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
 
         assert len(grouped_tests) == 1
-
-        run_args = [self.get_python(), '-m', 'pytest'] + [test for tests in grouped_tests.values() for test in tests]
+        test_ids = [test for tests in grouped_tests.values() for test in tests]
 
         parser = common.get_generic_parser(parser=self.parser,
                                            test_data=self.test_data,
@@ -220,7 +220,8 @@ class PyTest(TestFramework):
         if parser is None:
             parser = parser = OutputParser(self.test_data, self.framework_id)
 
-        process.get_output_streamed(run_args + self.args + self.run_args,
+        run_args = self.get_pytest() + self.run_args + self.args + test_ids
+        process.get_output_streamed(run_args,
                                     parser.feed, self.test_data.stop_tests_event,
                                     queue='pytest', ignore_errors=True, env=env, cwd=cwd)
 

@@ -170,7 +170,7 @@ class DoctestCpp(TestFramework):
                           env=json_data.get('env', {}),
                           cwd=json_data.get('cwd', None),
                           args=json_data.get('args', []),
-                          discover_args=json_data.get('discover_args', []),
+                          discover_args=json_data.get('discover_args', ['-r=xml', '-ltc', '--no-skip']),
                           run_args=json_data.get('run_args', ['-r=xml']),
                           path_prefix_style=json_data.get('path_prefix_style', 'full'),
                           custom_prefix=json_data.get('custom_prefix', None),
@@ -187,8 +187,8 @@ class DoctestCpp(TestFramework):
 
         def run_discovery(executable):
             exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
-            discover_args = [exe, '-r=xml', '-ltc', '--no-skip']
-            output = process.get_output(discover_args + self.args + self.discover_args, env=self.env, cwd=cwd)
+            discover_args = [exe] + self.discover_args + self.args
+            output = process.get_output(discover_args, env=self.env, cwd=cwd)
             try:
                 return self.parse_discovery(output, executable)
             except DiscoveryError as e:
@@ -265,7 +265,6 @@ class DoctestCpp(TestFramework):
 
             test_filters = ','.join(test.replace(',', '\\,') for test in test_ids)
             exe = common.make_executable_path(executable, project_root_dir=self.project_root_dir)
-            run_args = [exe, '-tc=' + test_filters]
 
             parser = common.get_generic_parser(parser=self.parser,
                                                test_data=self.test_data,
@@ -281,7 +280,8 @@ class DoctestCpp(TestFramework):
             def stream_reader(parser, line):
                 parser.feed(line)
 
-            process.get_output_streamed(run_args + self.args + self.run_args,
+            run_args = [exe] + self.run_args + self.args + ['-tc=' + test_filters]
+            process.get_output_streamed(run_args,
                                         partial(stream_reader, parser), self.test_data.stop_tests_event,
                                         queue='doctest-cpp', ignore_errors=True, env=self.env, cwd=cwd)
 
