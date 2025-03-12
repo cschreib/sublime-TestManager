@@ -517,10 +517,11 @@ class TestData:
         self.mutex = threading.Lock()
         self.stats: Optional[dict] = None
         self.last_test_finished: Optional[List[str]] = None
+        self.tests_started: Set[str] = set()
         self.stop_tests_event = threading.Event()
         self.test_output_buffer = ''
         self.last_commit_time: Optional[float] = None
-        self.tests_refresh_hints: Set[List[str]] = set()
+        self.tests_refresh_hints: Set[str] = set()
 
         if not self.is_initialised():
             self.init()
@@ -643,6 +644,8 @@ class TestData:
             self.meta.running = True
             self.stop_tests_event = threading.Event()
 
+            self.tests_started.clear()
+
             update_list = set()
             for path in run.tests:
                 item = self.tests.find_test(path)
@@ -662,6 +665,11 @@ class TestData:
 
         with self.mutex:
             self.meta.running = False
+
+            for running_test in self.tests_started:
+                self.tests.flush_test_output(test_name_to_path(running_test))
+
+            self.tests_started.clear()
 
             update_list = set()
             for path in run.tests:
@@ -697,6 +705,7 @@ class TestData:
 
             self.tests.update_compound_status(test.full_name[:-1])
             self.tests.clear_test_output(test.full_name)
+            self.tests_started.add(test_path_to_name(test.full_name))
             refresh_hints += parent_names_in_path(test.full_name)
 
         self.commit(tests=self.tests, refresh_hints=refresh_hints, buffered=True)
@@ -716,6 +725,7 @@ class TestData:
             item.update_from_finished(test)
             refresh_hints = [item.full_name]
 
+            self.tests_started.remove(test_path_to_name(test.full_name))
             self.last_test_finished = test.full_name
             self.tests.flush_test_output(test.full_name)
 
