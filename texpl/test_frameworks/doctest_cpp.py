@@ -1,9 +1,8 @@
 import os
 import logging
 import xml.etree.ElementTree as ET
-import xml.sax
+from xml.sax.xmlreader import IncrementalParser
 from typing import Dict, List, Optional
-from functools import partial
 
 from ..test_framework import (TestFramework, register_framework)
 from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
@@ -33,8 +32,25 @@ class OutputParser(common.XmlParser):
         self.current_exception: Optional[dict] = None
         self.last_expression_content = {}
 
+        self.xml_parser = IncrementalParser()
+        self.xml_parser.setContentHandler(common.XmlStreamHandler(self, captured_elements))
+
+    def feed(self, line):
+        self.xml_parser.feed(line)
+
+    def close(self):
+        self.finish_current_test()
+        self.xml_parser.close()
+
+    def finish_current_test(self):
+        if self.current_test is not None:
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.CRASHED))
+            self.current_test = None
+
     def startElement(self, name, attrs):
         if name == 'TestCase':
+            self.finish_current_test()
+
             test_id = attrs['name']
             if not test_id in self.test_ids:
                 # doctest always outputs a TestCase element for all tests, even if they are not
@@ -260,18 +276,14 @@ class DoctestCpp(TestFramework):
                                                executable=executable)
 
             if parser is None:
-                parser = xml.sax.make_parser()
-                parser.setContentHandler(common.XmlStreamHandler(
-                    OutputParser(self.test_data, self.framework_id, executable, test_ids),
-                    captured_elements))
-
-            def stream_reader(parser, line):
-                parser.feed(line)
+                parser = OutputParser(self.test_data, self.framework_id, executable, test_ids)
 
             run_args = [exe] + self.run_args + self.args + ['-tc=' + test_filters]
             process.get_output_streamed(run_args,
-                                        partial(stream_reader, parser), self.test_data.stop_tests_event,
+                                        parser.feed, self.test_data.stop_tests_event,
                                         queue='doctest-cpp', ignore_errors=True, env=self.env, cwd=cwd)
+
+            parser.close()
 
         for executable, test_ids in grouped_tests.items():
             run_tests(executable, test_ids)

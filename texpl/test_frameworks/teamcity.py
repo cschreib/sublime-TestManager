@@ -19,6 +19,14 @@ class OutputParser:
     def parse_test_id(self, line: str):
         return re.search("name='(.+)'", line).group(1)
 
+    def finish_current_test(self):
+        if self.current_test is not None:
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.CRASHED))
+            self.current_test = None
+
+    def close(self):
+        self.finish_current_test()
+
     def feed(self, line: str):
         parser_logger.debug(line.rstrip())
 
@@ -29,6 +37,7 @@ class OutputParser:
             return
 
         if line.startswith('##teamcity[testStarted'):
+            self.finish_current_test()
             self.current_test = self.test_list.find_test_by_report_id(
                 self.framework, self.executable, self.parse_test_id(line))
             self.current_status = TestStatus.PASSED

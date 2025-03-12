@@ -35,6 +35,15 @@ class OutputParser:
         self.current_test: Optional[List[str]] = None
         self.current_status: Optional[TestStatus] = None
 
+    def finish_current_test(self):
+        if self.current_test is None:
+            return
+        if self.current_status is None:
+            self.current_status = TestStatus.SKIPPED
+        self.test_data.notify_test_finished(FinishedTest(self.current_test, self.current_status))
+        self.current_test = None
+        self.current_status = None
+
     def feed(self, line: str):
         parser_logger.debug(line.rstrip())
         if not line.startswith(PYTEST_STATUS_HEADER):
@@ -44,19 +53,14 @@ class OutputParser:
         data = json.loads(line)
 
         if data['status'] == 'started':
+            self.finish_current_test()
             self.current_test = self.test_list.find_test_by_report_id(self.framework, 'pytest', data['test'])
             if self.current_test is None:
                 return
 
             self.test_data.notify_test_started(StartedTest(self.current_test))
         elif data['status'] == 'finished':
-            if self.current_test is None:
-                return
-            if self.current_status is None:
-                self.current_status = TestStatus.SKIPPED
-            self.test_data.notify_test_finished(FinishedTest(self.current_test, self.current_status))
-            self.current_test = None
-            self.current_status = None
+            self.finish_current_test()
         elif data['status'] == 'output':
             if self.current_test is None:
                 return
@@ -66,6 +70,8 @@ class OutputParser:
                 self.current_status = TestStatus.NOT_RUN
             self.current_status = TestStatus(max(self.current_status.value, PYTEST_STATUS_MAP[data['status']].value))
 
+    def close(self):
+        self.finish_current_test()
 
 def get_os_python_path():
     python_path = os.environ.get('PYTHONPATH')
@@ -222,6 +228,8 @@ class PyTest(TestFramework):
         process.get_output_streamed(run_args,
                                     parser.feed, self.test_data.stop_tests_event,
                                     queue='pytest', ignore_errors=True, env=env, cwd=cwd)
+
+        parser.close()
 
 
 register_framework('pytest', PyTest.from_json)

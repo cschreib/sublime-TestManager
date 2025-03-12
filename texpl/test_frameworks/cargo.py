@@ -35,6 +35,14 @@ class OutputParser:
         self.framework = framework
         self.current_test: Optional[List[str]] = None
 
+    def finish_current_test(self):
+        if self.current_test is not None:
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.CRASHED))
+            self.current_test = None
+
+    def close(self):
+        self.finish_current_test()
+
     def feed(self, line: str):
         parser_logger.debug(line.rstrip())
 
@@ -48,6 +56,7 @@ class OutputParser:
             return
 
         if json_line['event'] == 'started':
+            self.finish_current_test()
             self.current_test = self.test_list.find_test_by_report_id(
                 self.framework, 'cargo', json_line['name'])
             if self.current_test is None:
@@ -192,5 +201,6 @@ class Cargo(TestFramework):
                                     parser.feed, self.test_data.stop_tests_event,
                                     queue='cargo', ignore_errors=True, env=self.env, cwd=cwd)
 
+        parser.close()
 
 register_framework('cargo', Cargo.from_json)

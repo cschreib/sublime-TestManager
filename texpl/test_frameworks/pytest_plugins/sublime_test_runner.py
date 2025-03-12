@@ -77,13 +77,19 @@ def pytest_runtest_logreport(report):
         longrepr = report.longreprtext
         prev = ''
         if len(longrepr) > 0:
-            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{make_header("FAILURES")}\n{longrepr}'}))
+            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{make_header("FAILURES")}\n'}))
+            for line in longrepr.split("\n"):
+                print(STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{line}\n'}))
             prev = '\n\n'
         stdout = report.capstdout
         if len(stdout) > 0:
-            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{prev}{make_header("STDOUT")}\n{stdout}'}))
+            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{prev}{make_header("STDOUT")}\n'}))
+            for line in stdout.split("\n"):
+                print(STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{line}\n'}))
             prev = '\n\n'
         stderr = report.capstderr
         if len(stderr) > 0:
-            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{prev}{make_header("STDERR")}\n{stderr}'}))
+            print('\n' + STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{prev}{make_header("STDERR")}\n'}))
+            for line in stderr.split("\n"):
+                print(STATUS_HEADER + json.dumps({'status': 'output', 'content': f'{line}\n'}))
     yield

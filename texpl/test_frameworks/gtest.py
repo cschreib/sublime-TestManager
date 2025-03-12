@@ -25,10 +25,19 @@ class OutputParser:
     def parse_test_id(self, line: str):
         return line[12:].strip().split(' ')[0]
 
+    def finish_current_test(self):
+        if self.current_test is not None:
+            self.test_data.notify_test_finished(FinishedTest(self.current_test, TestStatus.CRASHED))
+            self.current_test = None
+
+    def close(self):
+        self.finish_current_test()
+
     def feed(self, line: str):
         parser_logger.debug(line.rstrip())
 
         if line.startswith('[ RUN      ] '):
+            self.finish_current_test()
             self.current_test = self.test_list.find_test_by_report_id(
                 self.framework, self.executable, self.parse_test_id(line))
             if self.current_test is None:
@@ -197,6 +206,8 @@ class GoogleTest(TestFramework):
             process.get_output_streamed(run_args,
                                         parser.feed, self.test_data.stop_tests_event,
                                         queue='gtest', ignore_errors=True, env=self.env, cwd=cwd)
+
+            parser.close()
 
         for executable, test_ids in grouped_tests.items():
             run_tests(executable, test_ids)

@@ -1,9 +1,8 @@
 import os
 import logging
 import xml.etree.ElementTree as ET
-import xml.sax
+from xml.sax.xmlreader import IncrementalParser
 from typing import Dict, List, Optional
-from functools import partial
 
 from ..test_framework import (TestFramework, register_framework)
 from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
@@ -34,8 +33,51 @@ class OutputParser(common.XmlParser):
         self.last_results_content = {}
         self.last_expression_content = {}
 
+        self.xml_parser = IncrementalParser()
+        self.xml_parser.setContentHandler(common.XmlStreamHandler(self, captured_elements))
+
+    def feed(self, line):
+        self.xml_parser.feed(line)
+
+    def close(self):
+        self.finish_current_test()
+        self.xml_parser.close()
+
+    def finish_current_test(self):
+        if self.current_test is None:
+            return
+
+        if self.last_status is None:
+            self.last_status = TestStatus.CRASHED
+
+        prev = '\n\n' if self.has_output else ''
+
+        content = self.last_results_content.get('Skip', '')
+        if len(content) > 0:
+            self.test_data.notify_test_output(
+                TestOutput(self.current_test, f'{prev}{common.make_header("SKIPPED")}\n{content.strip()}'))
+            prev = '\n\n'
+
+        content = self.last_results_content.get('StdErr', '')
+        if len(content) > 0:
+            self.test_data.notify_test_output(
+                TestOutput(self.current_test, f'{prev}{common.make_header("STDERR")}\n{content}'))
+            prev = '\n\n'
+
+        content = self.last_results_content.get('StdOut', '')
+        if len(content) > 0:
+            self.test_data.notify_test_output(
+                TestOutput(self.current_test, f'{prev}{common.make_header("STDOUT")}\n{content}'))
+
+        self.test_data.notify_test_finished(FinishedTest(self.current_test, self.last_status))
+
+        self.last_results_content = {}
+        self.current_test = None
+        self.has_output = False
+
     def startElement(self, name, attrs):
         if name == 'TestCase':
+            self.finish_current_test()
             self.current_test = self.test_list.find_test_by_report_id(
                 self.framework, self.executable, attrs['name'])
             if self.current_test is None:
@@ -61,33 +103,7 @@ class OutputParser(common.XmlParser):
         if name == 'Skip' or name == 'StdErr' or name == 'StdOut':
             self.last_results_content[name] = content
         elif name == 'OverallResult':
-            if self.current_test is None or self.last_status is None:
-                return
-
-            prev = '\n\n' if self.has_output else ''
-
-            content = self.last_results_content.get('Skip', '')
-            if len(content) > 0:
-                self.test_data.notify_test_output(
-                    TestOutput(self.current_test, f'{prev}{common.make_header("SKIPPED")}\n{content.strip()}'))
-                prev = '\n\n'
-
-            content = self.last_results_content.get('StdErr', '')
-            if len(content) > 0:
-                self.test_data.notify_test_output(
-                    TestOutput(self.current_test, f'{prev}{common.make_header("STDERR")}\n{content}'))
-                prev = '\n\n'
-
-            content = self.last_results_content.get('StdOut', '')
-            if len(content) > 0:
-                self.test_data.notify_test_output(
-                    TestOutput(self.current_test, f'{prev}{common.make_header("STDOUT")}\n{content}'))
-
-            self.test_data.notify_test_finished(FinishedTest(self.current_test, self.last_status))
-
-            self.last_results_content = {}
-            self.current_test = None
-            self.has_output = False
+            self.finish_current_test()
         elif name == 'Original' or name == 'Expanded':
             self.last_expression_content[name] = content.strip()
         elif name == 'Expression':
@@ -286,18 +302,14 @@ class Catch2(TestFramework):
                                                executable=executable)
 
             if parser is None:
-                parser = xml.sax.make_parser()
-                parser.setContentHandler(common.XmlStreamHandler(
-                    OutputParser(self.test_data, self.framework_id, executable),
-                    captured_elements))
-
-            def stream_reader(parser, line):
-                parser.feed(line)
+                parser = OutputParser(self.test_data, self.framework_id, executable)
 
             run_args = [exe] + self.run_args + self.args + [test_filters]
             process.get_output_streamed(run_args,
-                                        partial(stream_reader, parser), self.test_data.stop_tests_event,
+                                        parser.feed, self.test_data.stop_tests_event,
                                         queue='catch2', ignore_errors=True, env=self.env, cwd=cwd)
+
+            parser.close()
 
         for executable, test_ids in grouped_tests.items():
             run_tests(executable, test_ids)
