@@ -1,6 +1,7 @@
 import os
 import logging
 import xml.etree.ElementTree as ET
+import xml.sax
 from xml.sax.xmlreader import IncrementalParser
 from typing import Dict, List, Optional
 
@@ -32,7 +33,9 @@ class OutputParser(common.XmlParser):
         self.current_exception: Optional[dict] = None
         self.last_expression_content = {}
 
-        self.xml_parser = IncrementalParser()
+        xml_parser = xml.sax.make_parser()
+        assert isinstance(xml_parser, IncrementalParser)
+        self.xml_parser = xml_parser
         self.xml_parser.setContentHandler(common.XmlStreamHandler(self, captured_elements))
 
     def feed(self, line):
