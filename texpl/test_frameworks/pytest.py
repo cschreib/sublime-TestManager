@@ -39,7 +39,7 @@ class OutputParser:
         if self.current_test is None:
             return
         if self.current_status is None:
-            self.current_status = TestStatus.SKIPPED
+            self.current_status = TestStatus.CRASHED
         self.test_data.notify_test_finished(FinishedTest(self.current_test, self.current_status))
         self.current_test = None
         self.current_status = None
@@ -72,6 +72,7 @@ class OutputParser:
 
     def close(self):
         self.finish_current_test()
+
 
 def get_os_python_path():
     python_path = os.environ.get('PYTHONPATH')
