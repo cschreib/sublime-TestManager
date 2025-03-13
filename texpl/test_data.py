@@ -17,9 +17,9 @@ MIN_COMMIT_INTERVAL = 0.5  # seconds
 class TestStatus(enum.Enum):
     # Must be sorted by priority
     NOT_RUN = 0
-    STOPPED = 1
-    SKIPPED = 2
-    PASSED = 3
+    PASSED = 1
+    STOPPED = 2
+    SKIPPED = 3
     FAILED = 4
     CRASHED = 5
 
