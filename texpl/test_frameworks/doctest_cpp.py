@@ -173,16 +173,28 @@ class DoctestCpp(TestFramework):
         self.parser = parser
 
     @staticmethod
+    def get_default_settings():
+        return {
+            'executable_pattern': '*',
+            'env': {},
+            'cwd': None,
+            'args': [],
+            'discover_args': ['-r=xml', '-ltc', '--no-skip'],
+            'run_args': ['-r=xml'],
+            'parser': 'default'
+        }
+
+    @staticmethod
     def from_json(suite: TestSuite, settings: Dict):
         assert settings['type'] == 'doctest-cpp'
         return DoctestCpp(suite=suite,
-                          executable_pattern=settings.get('executable_pattern', '*'),
-                          env=settings.get('env', {}),
-                          cwd=settings.get('cwd', None),
-                          args=settings.get('args', []),
-                          discover_args=settings.get('discover_args', ['-r=xml', '-ltc', '--no-skip']),
-                          run_args=settings.get('run_args', ['-r=xml']),
-                          parser=settings.get('parser', 'default'))
+                          executable_pattern=settings['executable_pattern'],
+                          env=settings['env'],
+                          cwd=settings['cwd'],
+                          args=settings['args'],
+                          discover_args=settings['discover_args'],
+                          run_args=settings['run_args'],
+                          parser=settings['parser'])
 
     def discover(self) -> List[DiscoveredTest]:
         cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
@@ -279,4 +291,4 @@ class DoctestCpp(TestFramework):
             run_tests(executable, test_ids)
 
 
-register_framework('doctest-cpp', DoctestCpp.from_json)
+register_framework('doctest-cpp', DoctestCpp.from_json, DoctestCpp.get_default_settings())

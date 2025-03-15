@@ -111,16 +111,28 @@ class PyTest(TestFramework):
         self.parser = parser
 
     @staticmethod
+    def get_default_settings():
+        return {
+            'python': 'python',
+            'env': {},
+            'cwd': None,
+            'args': [],
+            'discover_args': ['--collect-only'],
+            'run_args': [],
+            'parser': 'default'
+        }
+
+    @staticmethod
     def from_json(suite: TestSuite, settings: Dict):
         assert settings['type'] == 'pytest'
         return PyTest(suite=suite,
-                      python=settings.get('python', 'python'),
-                      env=settings.get('env', {}),
-                      cwd=settings.get('cwd', None),
-                      args=settings.get('args', []),
-                      discover_args=settings.get('discover_args', ['--collect-only']),
-                      run_args=settings.get('run_args', []),
-                      parser=settings.get('parser', 'default'))
+                      python=settings['python'],
+                      env=settings['env'],
+                      cwd=settings['cwd'],
+                      args=settings['args'],
+                      discover_args=settings['discover_args'],
+                      run_args=settings['run_args'],
+                      parser=settings['parser'])
 
     def get_pytest(self):
         if not os.path.isabs(self.python) and len(os.path.dirname(self.python)) > 0:
@@ -220,4 +232,4 @@ class PyTest(TestFramework):
         parser.close()
 
 
-register_framework('pytest', PyTest.from_json)
+register_framework('pytest', PyTest.from_json, PyTest.get_default_settings())

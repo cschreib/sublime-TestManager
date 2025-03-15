@@ -10,6 +10,10 @@ from ..test_data import TestData
 from .teamcity import OutputParser as TeamcityOutputParser
 
 
+def get_setting(settings, name, defaults):
+    return settings.get(name, defaults[name])
+
+
 def get_working_directory(user_cwd: Optional[str], project_root_dir: str):
     if user_cwd is not None:
         cwd = user_cwd

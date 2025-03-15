@@ -1,15 +1,23 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List
+import copy
 
 from .test_data import DiscoveredTest
 from .test_suite import TestSuite
 
-registry: Dict[str, Callable] = {}
+
+class TestFrameworkFactory:
+    def __init__(self, create: Callable, default_settings: Dict):
+        self.create = create
+        self.default_settings = default_settings
 
 
-def register_framework(name: str, factory_function: Callable):
+registry: Dict[str, TestFrameworkFactory] = {}
+
+
+def register_framework(name: str, factory_function: Callable, default_settings: Dict):
     global registry
-    registry[name] = factory_function
+    registry[name] = TestFrameworkFactory(factory_function, default_settings)
 
 
 def create_framework(name: str, suite: TestSuite, settings: Dict):
@@ -18,7 +26,12 @@ def create_framework(name: str, suite: TestSuite, settings: Dict):
     if not name in registry:
         raise Exception(f'Unknown test framework "{name}"')
 
-    return registry[name](suite, settings)
+    factory = registry[name]
+
+    new_settings = copy.deepcopy(factory.default_settings)
+    new_settings.update(settings)
+
+    return factory.create(suite, new_settings)
 
 
 class TestFramework(ABC):

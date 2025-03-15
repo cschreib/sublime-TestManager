@@ -105,20 +105,30 @@ class Cargo(TestFramework):
         self.parser = parser
 
     @staticmethod
+    def get_default_settings():
+        return {
+            'cargo': 'cargo',
+            'env': {},
+            'cwd': None,
+            'args': [],
+            'discover_args': ['test', '--', '--list', '--test-threads=1',
+                              '--nocapture', '--format=json', '-Z', 'unstable-options'],
+            'run_args': ['test', '--', '--test-threads=1', '--nocapture',
+                         '--exact', '--format=json', '-Z', 'unstable-options'],
+            'parser': 'default'
+        }
+
+    @staticmethod
     def from_json(suite: TestSuite, settings: Dict):
         assert settings['type'] == 'cargo'
         return Cargo(suite=suite,
-                     cargo=settings.get('cargo', 'cargo'),
-                     env=settings.get('env', {}),
-                     cwd=settings.get('cwd', None),
-                     args=settings.get('args', []),
-                     discover_args=settings.get('discover_args',
-                                                 ['test', '--', '--list', '--test-threads=1',
-                                                  '--nocapture', '--format=json', '-Z', 'unstable-options']),
-                     run_args=settings.get('run_args',
-                                            ['test', '--', '--test-threads=1', '--nocapture',
-                                             '--exact', '--format=json', '-Z', 'unstable-options']),
-                     parser=settings.get('parser', 'default'))
+                     cargo=settings['cargo'],
+                     env=settings['env'],
+                     cwd=settings['cwd'],
+                     args=settings['args'],
+                     discover_args=settings['discover_args'],
+                     run_args=settings['run_args'],
+                     parser=settings['parser'])
 
     def get_cargo(self):
         if isinstance(self.cargo, list):
@@ -190,4 +200,5 @@ class Cargo(TestFramework):
 
         parser.close()
 
-register_framework('cargo', Cargo.from_json)
+
+register_framework('cargo', Cargo.from_json, Cargo.get_default_settings())

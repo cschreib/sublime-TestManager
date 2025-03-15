@@ -165,10 +165,12 @@ class YourTestFramework(TestFramework):
 You must then call somewhere:
 
 ```python
-register_framework("name-of-your-framework", your_framework_factory_function)
+register_framework("name-of-your-framework",
+                   your_framework_factory_function,
+                   your_framework_default_settings)
 ```
 
-... where `your_framework_factory_function` is a function that creates an instance of your framework class, constructed from settings in the user-supplied JSON data (see [Adding a test framework](#adding-a-test-framework)). The signature of the factory function must be:
+... where `your_framework_default_settings` is a dictionary holding the default settings for your new framework, and `your_framework_factory_function` is a function that creates an instance of your framework class, constructed from settings in the user-supplied JSON data (see [Adding a test framework](#adding-a-test-framework)). The signature of the factory function must be:
 
 ```python
 def your_framework_factory_function(suite: TestSuite, settings: Dict) -> YourTestFramework:
