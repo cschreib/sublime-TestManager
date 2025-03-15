@@ -20,18 +20,31 @@ def register_framework(name: str, factory_function: Callable, default_settings: 
     registry[name] = TestFrameworkFactory(factory_function, default_settings)
 
 
-def create_framework(name: str, suite: TestSuite, settings: Dict):
+def get_framework_factory(name: str):
     global registry
 
     if not name in registry:
         raise Exception(f'Unknown test framework "{name}"')
 
-    factory = registry[name]
+    return registry[name]
+
+
+def create_framework(name: str, suite: TestSuite, settings: Dict):
+    factory = get_framework_factory(name)
 
     new_settings = copy.deepcopy(factory.default_settings)
     new_settings.update(settings)
 
     return factory.create(suite, new_settings)
+
+
+def get_framework_default_settings(name: str):
+    factory = get_framework_factory(name)
+    return factory.default_settings
+
+
+def get_available_frameworks():
+    return list(registry.keys())
 
 
 class TestFramework(ABC):

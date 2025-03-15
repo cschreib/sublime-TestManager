@@ -18,6 +18,8 @@ from .discover import (TestExplorerDiscoverCommand, TestExplorerResetCommand)
 
 from .run import (TestExplorerStartSelectedCommand, TestExplorerStartCommand, TestExplorerStopCommand)
 
+from .suites import (TestExplorerAddTestSuiteCommand)
+
 from .testexplorer import (TestExplorerVersionCommand)
 
 # import test frameworks handlers

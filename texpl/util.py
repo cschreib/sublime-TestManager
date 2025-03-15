@@ -232,3 +232,13 @@ class SettingsHelper(object):
         local_settings = data.setdefault('settings', {}).setdefault(SETTINGS_ROOT, {})
         local_settings[key] = value
         window.set_project_data(data)
+
+# General helpers
+
+def merge_deep(dict1, dict2):
+    for k, v in dict2.items():
+        if not k in dict1 or not isinstance(v, dict):
+            dict1[k] = v
+            continue
+
+        merge_deep(dict1[k], v)
