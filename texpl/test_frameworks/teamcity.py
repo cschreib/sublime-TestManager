@@ -8,10 +8,10 @@ parser_logger = logging.getLogger('TestExplorerParser.teamcity')
 
 
 class OutputParser:
-    def __init__(self, test_data: TestData, framework: str, executable: str):
+    def __init__(self, test_data: TestData, suite_id: str, executable: str):
         self.test_data = test_data
         self.test_list = test_data.get_test_list()
-        self.framework = framework
+        self.suite_id = suite_id
         self.executable = executable
         self.current_test: Optional[List[str]] = None
         self.current_status = TestStatus.PASSED
@@ -39,7 +39,7 @@ class OutputParser:
         if line.startswith('##teamcity[testStarted'):
             self.finish_current_test()
             self.current_test = self.test_list.find_test_by_report_id(
-                self.framework, self.executable, self.parse_test_id(line))
+                self.suite_id, self.executable, self.parse_test_id(line))
             self.current_status = TestStatus.PASSED
             if self.current_test is None:
                 return

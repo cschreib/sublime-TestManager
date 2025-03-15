@@ -17,15 +17,19 @@ The core architecture is language agnostic, and can work in principle with any l
 
  1. Install the TestExplorer package (e.g., from Package Control).
  2. Open a Sublime Text project for which you want to run tests. A project is required, so if you don't have one already, create it.
- 3. Edit your project settings ("Project > Edit Project") and define at least one test framework. See [Adding a test framework](#adding-a-test-framework) for details.
+ 3. Edit your project settings ("Project > Edit Project") and define at least one test suite. See [Adding a test suite](#adding-a-test-suite) for details.
  4. Run the command `TestExplorer: List Tests`. This should display an empty list.
  5. Press the `d` key to run test discovery. Your tests should now appear, and you are ready to go. Follow the help text at the bottom of the test list to get started.
  6. (optional) Configure custom color scheme for test statuses, for a nicer test list. See [Custom test status colors](#custom-test-status-colors).
 
 
-## Adding a test framework
+## Adding a test suite
 
-Frameworks are added to your project settings in the following way:
+In TestExplorer, a "test suite" is simply a collection of tests that are implemented with the same test framework. The tests from a given suite may come from multiple files, multiple classes, even multiple executables; this does not matter and is left up to you, as long as all tests within the suite are using the same framework. In general I would expect most people would only need to configure a single TestExplorer test suite.
+
+Once the test suite is configured, you are unlikely to need to modify it again, even if you add more tests, test files, etc. TestExplorer implements dynamic test discovery, so you do not have to list all tests by hand; you only need to tell the plugin where to find your tests.
+
+Test suites are added to your Sublime Text project settings in the following way:
 
 ```json
 {
@@ -33,13 +37,13 @@ Frameworks are added to your project settings in the following way:
     {
         "TestExplorer":
         {
-            "frameworks": [
+            "test_suites": [
                 {
-                    "id": "framework1",
+                    "id": "suite1",
                     ...
                 },
                 {
-                    "id": "framework2",
+                    "id": "suite2",
                     ...
                 },
                 ...
@@ -49,10 +53,10 @@ Frameworks are added to your project settings in the following way:
 }
 ```
 
-Inside the `"frameworks"` array, you can list as many test frameworks as you need. The format of each entry is specific to the type of the framework, however there are a number of fields that are common to all test frameworks:
+Inside the `"test_suites"` array, you can list as many test suites as you need. The format of each entry is:
 
- - `"id"`: A unique identifier for this framework; choose manually. If changed, all test results recorded with the old ID will be lost.
- - `"type"`: The type of the framework. This determines how tests are discovered and run, and also sets up a suitable default parser. Possible values:
+ - `"id"`: A unique identifier for this test suite; choose manually. If changed, all test results recorded with the old ID will be lost.
+ - `"framework"`: The name of the framework used to implement this test suite. This determines how tests are discovered and run, and also sets up a suitable default parser. Possible values:
     - `"gtest"`: GoogleTest (C++).
     - `"doctest-cpp"`: doctest (C++).
     - `"catch2"`: Catch2 (C++).
@@ -62,7 +66,9 @@ Inside the `"frameworks"` array, you can list as many test frameworks as you nee
     - `"full"`: (default) Show the full file paths, relative to the root of the project.
     - `"basename"`: Show only the file name.
     - `"none"`: Do not show file paths.
- - `"custom_prefix"`: If set, this introduces an additional prefix to all tests discovered within this framework. Can be useful to group tests from similar frameworks (e.g., same language) or to ensure that tests from different frameworks are well separated. The default is `null`, which does not add any prefix.
+ - `"custom_prefix"`: If set, this introduces an additional prefix to all tests discovered within this test suite. Can be useful to group tests from similar frameworks (e.g., same language) or to ensure that tests from different suites are well separated. The default is `null`, which does not add any prefix.
+
+The rest of the fields are specific to the chosen test framework, however there are a number of fields that are currently common to all test frameworks:
  - `"args"`: A list of additional command-line arguments that will be passed to the test framework on each invocation (for whatever purpose). Default to an empty list.
  - `"discovery_args"`: A list of additional command-line arguments that will be passed to the test framework, only during test discovery. This is added to the list in `"args"`. Default to an empty list.
  - `"run_args"`: A list of additional command-line arguments that will be passed to the test framework, only during test execution. This is added to the list in `"args"`. Default to an empty list.
@@ -72,7 +78,7 @@ Inside the `"frameworks"` array, you can list as many test frameworks as you nee
     - `"default"`: (default) use the default for the framework.
     - `"teamcity"`: parse TeamCity service messages.
 
-The following sections describe fields that are specific to the chosen framework.
+The following sections describe fields that are only available in specific test frameworks.
 
 
 ### Catch2 / Doctest / GoogleTest
@@ -107,7 +113,7 @@ Each test is described by the following fields:
  - `name`: This is the name of this test (or group), excluding the name of its parent group (if any). For example, for a test function inside a class, this would be the name of the function.
  - `full_name`: This is the full name of the test (or group), including the name of all its parent groups, separated by a `/`. This is used for display only.
  - `discovery_id`: This is an integer which specifies the position of the test in the list output by the test framework during the last test discovery. This is used for display only (e.g., for sorting tests by discovery order). For groups, this is set to `0`.
- - `framework_id`: This is the unique ID of the framework instance from which this test (or group) was discovered. This is used to link the test to the right `TestFramework` class, e.g., for running the test.
+ - `suite_id`: This is the unique ID of the test suite from which this test (or group) was discovered. This is used to link the test to the right test suite and framework, e.g., for running the test.
  - `run_id`: This is the ID of the test to use when selecting this test for running. For example, the specific format to use when selecting this test on the command-line. This is normally the same as `report_id`. For groups, this is empty.
  - `report_id`: This is the ID of the test as it appears in the test report output by the test framework. This is normally the same as `run_id`. Some odd combinations of frameworks and reporters may result in different IDs being used for running and reporting (e.g., when using the TeamCity reporter, some characters are forbidden in the test name and are replaced by placeholders). For groups, this is empty.
  - `location`: This describes the executable, file, and line number at which the test definition was found. For groups, this is `None`. This is used for user navigation ("go to this test").
@@ -119,29 +125,22 @@ Each test is described by the following fields:
 NB: The above describes the data model in Python. When the test data is stored on disk, it is stored in an SQLite database, and each test is then a row in a table. Nodes of the tree are not stored on disk, because they do not contain any new information (their content is entirely derived from that of their respective children).
 
 
-## Register custom framework
+## Register new framework
 
-To add your own custom framework, you must create a new class that implements the `TestFramework` interface (see abstract base class definition in `test_framework.py`).
+To add a new test framework, you must create a new class that implements the `TestFramework` interface (see abstract base class definition in `test_framework.py`).
 
 ```python
 from TestExplorer.test_framework import TestFramework
 
 class YourTestFramework(TestFramework):
-    def __init__(self, test_data: TestData):
+    def __init__(self, suite: TestSuite):
         """
-        Initialise any state you need.
+        Initialise any state and settings you need.
         Note: The instance is not long-lived: it is created for the duration of the test discovery
         or test run, and destroyed afterwards. Any persistent state, e.g., the list and status of
         tests, should be stored in the TestData class.
         """
-        pass
-
-    def get_id(self) -> str:
-        """
-        Must return a string containing the unique ID of the framework instance.
-        This will normally be the "id" field in the user JSON, but you can override that.
-        """
-        return "..."
+        super().__init__(suite)
 
     def discover(self) -> List[DiscoveredTest]:
         """
@@ -169,12 +168,12 @@ You must then call somewhere:
 register_framework("name-of-your-framework", your_framework_factory_function)
 ```
 
-... where `your_framework_factory_function` is a function that creates an instance of your framework class, constructed from the user-supplied JSON data (see [Adding a test framework](#adding-a-test-framework)). The signature of the factory function must be:
+... where `your_framework_factory_function` is a function that creates an instance of your framework class, constructed from settings in the user-supplied JSON data (see [Adding a test framework](#adding-a-test-framework)). The signature of the factory function must be:
 
 ```python
-def your_framework_factory_function(test_data: TestData, project_root_dir: str, json_data: Dict) -> YourTestFramework:
-    # Extract useful parameters from json_data and forward them to your class.
-    return YourTestFramework(test_data)
+def your_framework_factory_function(suite: TestSuite, settings: Dict) -> YourTestFramework:
+    # Extract useful parameters from settings and forward them to your class.
+    return YourTestFramework(suite)
 ```
 
 The builtin framework class for Google Test is a good example to emulate, and has one of the simplest parser. See `test_frameworks/gtest.py`.

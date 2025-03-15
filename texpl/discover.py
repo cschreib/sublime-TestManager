@@ -9,7 +9,7 @@ import sublime
 from sublime_plugin import WindowCommand
 
 from .helpers import TestDataHelper
-from .test_framework import TestFramework
+from .test_suite import TestSuite
 from .test_data import DiscoveryError, TestData, clear_test_data
 from .util import SettingsHelper
 
@@ -22,7 +22,7 @@ CANNOT_RESET_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait o
                                      "stop the tests before reseting the test data.")
 
 
-NO_FRAMEWORK_CONFIGURED = ("No test framework is currently configured.")
+NO_TEST_SUITE_CONFIGURED = ("No test suite is currently configured.")
 
 MAX_ERROR_LENGTH = 256
 
@@ -69,18 +69,18 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper)
             sublime.error_message(CANNOT_DISCOVER_WHILE_RUNNING_DIALOG)
             return
 
-        frameworks_json = self.get_setting('frameworks')
-        if not frameworks_json:
-            # TODO: change this into a "Do you want to configure a framework now?"
+        suites_json = self.get_setting('test_suites')
+        if not suites_json:
+            # TODO: change this into a "Do you want to configure a test suite now?"
             # Then propose a dropdown list of all available frameworks, and init to default.
-            # Also add a command to init a new framework to default.
-            sublime.error_message(NO_FRAMEWORK_CONFIGURED)
+            # Also add a command to init a new suite to default.
+            sublime.error_message(NO_TEST_SUITE_CONFIGURED)
             return
 
         root_dir = os.path.dirname(project)
-        frameworks = [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
+        suites = [TestSuite.from_json(data, root_dir, f) for f in suites_json]
 
-        sublime.set_timeout_async(partial(self.discover_tests, data, frameworks))
+        sublime.set_timeout_async(partial(self.discover_tests, data, suites))
 
     def display_in_panel(self, content):
         panel_name = 'TestExplorer.discovery'
@@ -88,12 +88,12 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper)
         panel.run_command('test_explorer_panel_write', {'content': content})
         self.window.run_command('show_panel', {'panel': f'output.{panel_name}'})
 
-    def discover_tests(self, data: TestData, frameworks: List[TestFramework]):
+    def discover_tests(self, data: TestData, suites: List[TestSuite]):
         start = datetime.now()
 
         # TODO: turn this into parallel jobs
         try:
-            discovered_tests = [t for f in frameworks for t in f.discover()]
+            discovered_tests = [t for s in suites for t in s.discover()]
         except DiscoveryError as e:
             sublime.error_message(str(e))
             logger.error(str(e))

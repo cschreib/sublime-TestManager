@@ -82,10 +82,10 @@ class DiscoveryError(Exception):
 
 class DiscoveredTest:
     def __init__(self, full_name: List[str] = [], discovery_id=0,
-                 framework_id='', run_id='', report_id='', location=TestLocation()):
+                 suite_id='', run_id='', report_id='', location=TestLocation()):
         self.full_name = full_name
         self.discovery_id = discovery_id
-        self.framework_id = framework_id
+        self.suite_id = suite_id
         self.run_id = run_id
         self.report_id = report_id
         self.location = location
@@ -121,13 +121,13 @@ class FinishedRun:
 
 
 class TestItem:
-    def __init__(self, name='', full_name='', discovery_id=0, framework_id='', run_id='', report_id='', location=None,
+    def __init__(self, name='', full_name='', discovery_id=0, suite_id='', run_id='', report_id='', location=None,
                  last_status=TestStatus.NOT_RUN, run_status=RunStatus.NOT_RUNNING,
                  last_run=None, children: Optional[Dict] = None):
         self.name: str = name
         self.full_name: str = full_name
         self.discovery_id: int = discovery_id
-        self.framework_id: str = framework_id
+        self.suite_id: str = suite_id
         self.run_id: str = run_id
         self.report_id: str = report_id
         self.location: Optional[TestLocation] = location
@@ -141,7 +141,7 @@ class TestItem:
         return TestItem(name=row['name'],
                         full_name=row['full_name'],
                         discovery_id=row['discovery_id'],
-                        framework_id=row['framework_id'],
+                        suite_id=row['suite_id'],
                         run_id=row['run_id'],
                         report_id=row['report_id'],
                         location=TestLocation.from_row(row),
@@ -155,7 +155,7 @@ class TestItem:
                     (self.full_name,
                      self.name,
                      self.discovery_id,
-                     self.framework_id,
+                     self.suite_id,
                      self.run_id,
                      self.report_id,
                      self.location.executable if self.location is not None else None,
@@ -180,14 +180,14 @@ class TestItem:
     def from_discovered(test: DiscoveredTest):
         return TestItem(name=test.full_name[-1],
                         full_name=test_path_to_name(test.full_name),
-                        framework_id=test.framework_id,
+                        suite_id=test.suite_id,
                         run_id=test.run_id,
                         report_id=test.report_id,
                         location=test.location)
 
     def update_from_discovered(self, test: DiscoveredTest):
         self.discovery_id = test.discovery_id
-        self.framework_id = test.framework_id
+        self.suite_id = test.suite_id
         self.run_id = test.run_id
         self.report_id = test.report_id
         self.location = test.location
@@ -287,7 +287,7 @@ class TestList:
                         full_name TEXT PRIMARY KEY,
                         name TEXT,
                         discovery_id INT,
-                        framework_id TEXT,
+                        suite_id TEXT,
                         run_id TEXT,
                         report_id TEXT,
                         location_executable TEXT,
@@ -334,14 +334,14 @@ class TestList:
         return parent
 
     def add_item_to_report_id_lookup(self, item: TestItem):
-        if item.framework_id not in self.report_id_lookup:
-            self.report_id_lookup[item.framework_id] = {}
+        if item.suite_id not in self.report_id_lookup:
+            self.report_id_lookup[item.suite_id] = {}
 
         assert item.location is not None
-        if item.location.executable not in self.report_id_lookup[item.framework_id]:
-            self.report_id_lookup[item.framework_id][item.location.executable] = {}
+        if item.location.executable not in self.report_id_lookup[item.suite_id]:
+            self.report_id_lookup[item.suite_id][item.location.executable] = {}
 
-        self.report_id_lookup[item.framework_id][item.location.executable][item.report_id] = test_name_to_path(
+        self.report_id_lookup[item.suite_id][item.location.executable][item.report_id] = test_name_to_path(
             item.full_name)
 
     def make_report_id_lookup(self, item: TestItem):
@@ -352,8 +352,8 @@ class TestList:
         for child in item.children.values():
             self.make_report_id_lookup(child)
 
-    def find_test_by_report_id(self, framework: str, executable: str, report_id: str) -> Optional[List[str]]:
-        return self.report_id_lookup.get(framework, {}).get(executable, {}).get(report_id, None)
+    def find_test_by_report_id(self, suite: str, executable: str, report_id: str) -> Optional[List[str]]:
+        return self.report_id_lookup.get(suite, {}).get(executable, {}).get(report_id, None)
 
     def update_test(self, item_path: List[str], item: TestItem):
         parent = self.root
@@ -369,7 +369,7 @@ class TestList:
                     parent.children[item_path[i]] = TestItem(name=item_path[i],
                                                              full_name=test_path_to_name(item_path[:i+1]),
                                                              discovery_id=item.discovery_id,
-                                                             framework_id=item.framework_id,
+                                                             suite_id=item.suite_id,
                                                              children={})
 
             parent = parent.children[item_path[i]]

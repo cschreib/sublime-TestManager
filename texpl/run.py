@@ -11,8 +11,8 @@ from sublime_plugin import WindowCommand, TextCommand
 
 from .helpers import TestDataHelper
 from .list import TestExplorerTextCmd
-from .test_framework import TestFramework
-from .discover import NO_FRAMEWORK_CONFIGURED
+from .test_suite import TestSuite
+from .discover import NO_TEST_SUITE_CONFIGURED
 from .util import SettingsHelper
 from .test_data import TestData, TestList, TestItem, StartedRun, FinishedRun, test_name_to_path, ROOT_NAME
 
@@ -25,17 +25,17 @@ CANNOT_START_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait o
 
 
 class TestRunHelper(SettingsHelper):
-    def get_frameworks(self, data: TestData, project: str):
-        frameworks_json = self.get_setting('frameworks')
-        if not frameworks_json:
-            # TODO: change this into a "Do you want to configure a framework now?"
+    def get_test_suites(self, data: TestData, project: str):
+        suites_json = self.get_setting('test_suites')
+        if not suites_json:
+            # TODO: change this into a "Do you want to configure a test suite now?"
             # Then propose a dropdown list of all available frameworks, and init to default.
-            # Also add a command to init a new framework to default.
-            sublime.error_message(NO_FRAMEWORK_CONFIGURED)
+            # Also add a command to init a new suite to default.
+            sublime.error_message(NO_TEST_SUITE_CONFIGURED)
             return None
 
         root_dir = os.path.dirname(project)
-        return [TestFramework.from_json(data, root_dir, f) for f in frameworks_json]
+        return [TestSuite.from_json(data, root_dir, f) for f in suites_json]
 
     def refresh_loop(self):
         if not self.running:
@@ -45,7 +45,7 @@ class TestRunHelper(SettingsHelper):
 
         sublime.set_timeout(self.refresh_loop, self.refresh_interval)
 
-    def run_tests(self, data: TestData, test_list: TestList, frameworks: List[TestFramework], tests: List[str]):
+    def run_tests(self, data: TestData, test_list: TestList, suites: List[TestSuite], tests: List[str]):
         try:
             settings = self.get_settings()
             self.refresh_interval = settings.get('view_refresh_interval', 0.1) * 1000
@@ -60,7 +60,7 @@ class TestRunHelper(SettingsHelper):
                 else:
                     assert item.location is not None
                     test_paths.append(path)
-                    test_ids.setdefault(item.framework_id, {}).setdefault(
+                    test_ids.setdefault(item.suite_id, {}).setdefault(
                         item.location.executable, []).append(item.run_id)
 
             for test in tests:
@@ -84,14 +84,14 @@ class TestRunHelper(SettingsHelper):
             sublime.set_timeout(self.refresh_loop, self.refresh_interval)
 
             try:
-                for framework_id, grouped_tests in test_ids.items():
-                    logger.debug(f'running {len(grouped_tests)} tests for {framework_id}...')
-                    framework = next((f for f in frameworks if f.get_id() == framework_id), None)
-                    if framework is None:
-                        logger.warning(f'{framework_id} not found in frameworks')
+                for suite_id, grouped_tests in test_ids.items():
+                    logger.debug(f'running {len(grouped_tests)} tests for {suite_id}...')
+                    suite = next((f for f in suites if f.suite_id == suite_id), None)
+                    if suite is None:
+                        logger.warning(f'{suite_id} not found in test suites')
                         continue
 
-                    framework.run(grouped_tests)
+                    suite.run(grouped_tests)
                     logger.debug(f'done.')
             finally:
                 data.notify_run_finished(FinishedRun(test_paths))
@@ -123,20 +123,20 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, TestRunHelpe
             sublime.error_message(CANNOT_START_WHILE_RUNNING_DIALOG)
             return
 
-        frameworks = self.get_frameworks(data, project)
-        if frameworks is None:
+        suites = self.get_test_suites(data, project)
+        if suites is None:
             return
 
         test_list = data.get_test_list()
 
         tests = self.get_selected_tests()
         if len(tests) > 0:
-            sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, tests))
+            sublime.set_timeout_async(partial(self.run_tests, data, test_list, suites, tests))
             return
 
         tests = self.get_selected_folders()
         if len(tests) > 0:
-            sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, tests))
+            sublime.set_timeout_async(partial(self.run_tests, data, test_list, suites, tests))
             return
 
 
@@ -155,8 +155,8 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
             sublime.error_message(CANNOT_START_WHILE_RUNNING_DIALOG)
             return
 
-        frameworks = self.get_frameworks(data, project)
-        if frameworks is None:
+        suites = self.get_test_suites(data, project)
+        if suites is None:
             return
 
         test_list = data.get_test_list()
@@ -167,13 +167,13 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
                 return
 
             self.window.show_quick_panel(choices, partial(self.run_one_test, data,
-                                                          test_list, frameworks, choices), sublime.MONOSPACE_FONT)
+                                                          test_list, suites, choices), sublime.MONOSPACE_FONT)
         elif start == "all":
-            sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, ['']))
+            sublime.set_timeout_async(partial(self.run_tests, data, test_list, suites, ['']))
 
     def run_one_test(self, data: TestData, test_list: TestList,
-                     frameworks: List[TestFramework], choices: List[str], test_id: int):
-        sublime.set_timeout_async(partial(self.run_tests, data, test_list, frameworks, [choices[test_id]]))
+                     suites: List[TestSuite], choices: List[str], test_id: int):
+        sublime.set_timeout_async(partial(self.run_tests, data, test_list, suites, [choices[test_id]]))
 
 
 class TestExplorerStopCommand(WindowCommand, TestDataHelper):

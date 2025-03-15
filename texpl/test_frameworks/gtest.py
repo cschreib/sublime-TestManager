@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from tempfile import TemporaryDirectory
 
 from ..test_framework import (TestFramework, register_framework)
+from ..test_suite import TestSuite
 from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
                          StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput)
 from .. import process
@@ -15,10 +16,10 @@ parser_logger = logging.getLogger('TestExplorerParser.gtest')
 
 
 class OutputParser:
-    def __init__(self, test_data: TestData, framework: str, executable: str):
+    def __init__(self, test_data: TestData, suite_id: str, executable: str):
         self.test_data = test_data
         self.test_list = test_data.get_test_list()
-        self.framework = framework
+        self.suite_id = suite_id
         self.executable = executable
         self.current_test: Optional[List[str]] = None
 
@@ -39,7 +40,7 @@ class OutputParser:
         if line.startswith('[ RUN      ] '):
             self.finish_current_test()
             self.current_test = self.test_list.find_test_by_report_id(
-                self.framework, self.executable, self.parse_test_id(line))
+                self.suite_id, self.executable, self.parse_test_id(line))
             if self.current_test is None:
                 return
 
@@ -69,49 +70,35 @@ class OutputParser:
 
 
 class GoogleTest(TestFramework):
-    def __init__(self, test_data: TestData,
-                 project_root_dir: str,
-                 framework_id: str = '',
+    def __init__(self,
+                 suite: TestSuite,
                  executable_pattern: str = '*',
                  env: Dict[str, str] = {},
                  cwd: Optional[str] = None,
                  args: List[str] = [],
                  discover_args: List[str] = [],
                  run_args: List[str] = [],
-                 path_prefix_style: str = 'full',
-                 custom_prefix: Optional[str] = None,
                  parser: str = 'default'):
-        super().__init__(test_data, project_root_dir)
-        self.test_data = test_data
-        self.framework_id = framework_id
+        super().__init__(suite)
         self.executable_pattern = executable_pattern
         self.env = env
         self.cwd = cwd
         self.args = args
         self.discover_args = discover_args
         self.run_args = run_args
-        self.path_prefix_style = path_prefix_style
-        self.custom_prefix = custom_prefix
         self.parser = parser
 
     @staticmethod
-    def from_json(test_data: TestData, project_root_dir: str, json_data: Dict):
-        assert json_data['type'] == 'gtest'
-        return GoogleTest(test_data=test_data,
-                          project_root_dir=project_root_dir,
-                          framework_id=json_data['id'],
-                          executable_pattern=json_data.get('executable_pattern', '*'),
-                          env=json_data.get('env', {}),
-                          cwd=json_data.get('cwd', None),
-                          args=json_data.get('args', []),
-                          discover_args=json_data.get('discover_args', ['--gtest_list_tests']),
-                          run_args=json_data.get('run_args', []),
-                          path_prefix_style=json_data.get('path_prefix_style', 'full'),
-                          custom_prefix=json_data.get('custom_prefix', None),
-                          parser=json_data.get('parser', 'default'))
-
-    def get_id(self):
-        return self.framework_id
+    def from_json(suite: TestSuite, settings: Dict):
+        assert settings['type'] == 'gtest'
+        return GoogleTest(suite=suite,
+                          executable_pattern=settings.get('executable_pattern', '*'),
+                          env=settings.get('env', {}),
+                          cwd=settings.get('cwd', None),
+                          args=settings.get('args', []),
+                          discover_args=settings.get('discover_args', ['--gtest_list_tests']),
+                          run_args=settings.get('run_args', []),
+                          parser=settings.get('parser', 'default'))
 
     def discover(self) -> List[DiscoveredTest]:
         cwd = common.get_working_directory(user_cwd=self.cwd, project_root_dir=self.project_root_dir)
@@ -151,10 +138,10 @@ class GoogleTest(TestFramework):
 
         path = []
 
-        if self.custom_prefix is not None:
-            path += self.custom_prefix.split(TEST_SEPARATOR)
+        if self.suite.custom_prefix is not None:
+            path += self.suite.custom_prefix.split(TEST_SEPARATOR)
 
-        path += common.get_file_prefix(executable, path_prefix_style=self.path_prefix_style)
+        path += common.get_file_prefix(executable, path_prefix_style=self.suite.path_prefix_style)
 
         pretty_suite = suite
         if 'type_param' in test:
@@ -171,7 +158,7 @@ class GoogleTest(TestFramework):
         run_id = f'{suite}.{name}'
 
         return DiscoveredTest(
-            full_name=path, framework_id=self.framework_id, run_id=run_id, report_id=run_id,
+            full_name=path, suite_id=self.suite.suite_id, run_id=run_id, report_id=run_id,
             location=TestLocation(executable=executable, file=file, line=line))
 
     def parse_discovery(self, output_file: str, executable: str) -> List[DiscoveredTest]:
@@ -196,11 +183,11 @@ class GoogleTest(TestFramework):
 
             parser = common.get_generic_parser(parser=self.parser,
                                                test_data=self.test_data,
-                                               framework_id=self.framework_id,
+                                               suite_id=self.suite.suite_id,
                                                executable=executable)
 
             if parser is None:
-                parser = OutputParser(self.test_data, self.framework_id, executable)
+                parser = OutputParser(self.test_data, self.suite.suite_id, executable)
 
             run_args = [exe] + self.run_args + self.args + ['--gtest_filter=' + test_filters]
             process.get_output_streamed(run_args,

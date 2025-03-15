@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List
 
-from .test_data import DiscoveredTest, TestData
+from .test_data import DiscoveredTest
+from .test_suite import TestSuite
 
 registry: Dict[str, Callable] = {}
 
@@ -11,28 +12,20 @@ def register_framework(name: str, factory_function: Callable):
     registry[name] = factory_function
 
 
+def create_framework(name: str, suite: TestSuite, settings: Dict):
+    global registry
+
+    if not name in registry:
+        raise Exception(f'Unknown test framework "{name}"')
+
+    return registry[name](suite, settings)
+
+
 class TestFramework(ABC):
-    def __init__(self, test_data: TestData, project_root_dir: str):
-        self.test_data = test_data
-        self.project_root_dir = project_root_dir
-
-    @staticmethod
-    def from_json(test_data: TestData, project_root_dir: str, json_data: Dict):
-        global registry
-
-        framework_type = json_data['type']
-        if not framework_type in registry:
-            raise Exception(f'Unknown test framework type "{framework_type}"')
-
-        return registry[framework_type](test_data, project_root_dir, json_data)
-
-    @abstractmethod
-    def get_id(self) -> str:
-        """
-        Return a string containing the unique ID of the framework instance.
-        This will normally be the "id" field in the user JSON, but you can override that.
-        """
-        pass
+    def __init__(self, suite: TestSuite):
+        self.test_data = suite.test_data
+        self.project_root_dir = suite.project_root_dir
+        self.suite = suite
 
     @abstractmethod
     def discover(self) -> List[DiscoveredTest]:

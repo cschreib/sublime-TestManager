@@ -58,9 +58,9 @@ def discover_executables(executable_pattern: str, cwd='.') -> List[str]:
         return [executable_pattern]
 
 
-def get_generic_parser(parser: str, test_data: TestData, framework_id: str, executable: str):
+def get_generic_parser(parser: str, test_data: TestData, suite_id: str, executable: str):
     if parser == 'teamcity':
-        return TeamcityOutputParser(test_data, framework_id, executable)
+        return TeamcityOutputParser(test_data, suite_id, executable)
 
     return None
 

@@ -4,6 +4,7 @@ import json
 from typing import Dict, List, Optional, Union
 
 from ..test_framework import (TestFramework, register_framework)
+from ..test_suite import TestSuite
 from ..test_data import (DiscoveredTest, TestLocation, TestData,
                          StartedTest, FinishedTest, TEST_SEPARATOR, TestStatus, TestOutput)
 from .. import process
@@ -29,10 +30,10 @@ def get_json(line: str):
 
 
 class OutputParser:
-    def __init__(self, test_data: TestData, framework: str):
+    def __init__(self, test_data: TestData, suite_id: str):
         self.test_data = test_data
         self.test_list = test_data.get_test_list()
-        self.framework = framework
+        self.suite_id = suite_id
         self.current_test: Optional[List[str]] = None
 
     def finish_current_test(self):
@@ -58,7 +59,7 @@ class OutputParser:
         if json_line['event'] == 'started':
             self.finish_current_test()
             self.current_test = self.test_list.find_test_by_report_id(
-                self.framework, 'cargo', json_line['name'])
+                self.suite_id, 'cargo', json_line['name'])
             if self.current_test is None:
                 return
 
@@ -85,53 +86,39 @@ class OutputParser:
 
 
 class Cargo(TestFramework):
-    def __init__(self, test_data: TestData,
-                 project_root_dir: str,
-                 framework_id: str = '',
+    def __init__(self,
+                 suite: TestSuite,
                  cargo: Union[str, List[str]] = 'cargo',
                  env: Dict[str, str] = {},
                  cwd: Optional[str] = None,
                  args: List[str] = [],
                  discover_args: List[str] = [],
                  run_args: List[str] = [],
-                 path_prefix_style: str = 'full',
-                 custom_prefix: Optional[str] = None,
                  parser: str = 'default'):
-        super().__init__(test_data, project_root_dir)
-        self.test_data = test_data
-        self.framework_id = framework_id
+        super().__init__(suite)
         self.cargo = cargo
         self.env = env
         self.cwd = cwd
         self.args = args
         self.discover_args = discover_args
         self.run_args = run_args
-        self.path_prefix_style = path_prefix_style
-        self.custom_prefix = custom_prefix
         self.parser = parser
 
     @staticmethod
-    def from_json(test_data: TestData, project_root_dir: str, json_data: Dict):
-        assert json_data['type'] == 'cargo'
-        return Cargo(test_data=test_data,
-                     project_root_dir=project_root_dir,
-                     framework_id=json_data['id'],
-                     cargo=json_data.get('cargo', 'cargo'),
-                     env=json_data.get('env', {}),
-                     cwd=json_data.get('cwd', None),
-                     args=json_data.get('args', []),
-                     discover_args=json_data.get('discover_args',
+    def from_json(suite: TestSuite, settings: Dict):
+        assert settings['type'] == 'cargo'
+        return Cargo(suite=suite,
+                     cargo=settings.get('cargo', 'cargo'),
+                     env=settings.get('env', {}),
+                     cwd=settings.get('cwd', None),
+                     args=settings.get('args', []),
+                     discover_args=settings.get('discover_args',
                                                  ['test', '--', '--list', '--test-threads=1',
                                                   '--nocapture', '--format=json', '-Z', 'unstable-options']),
-                     run_args=json_data.get('run_args',
+                     run_args=settings.get('run_args',
                                             ['test', '--', '--test-threads=1', '--nocapture',
                                              '--exact', '--format=json', '-Z', 'unstable-options']),
-                     path_prefix_style=json_data.get('path_prefix_style', 'full'),
-                     custom_prefix=json_data.get('custom_prefix', None),
-                     parser=json_data.get('parser', 'default'))
-
-    def get_id(self):
-        return self.framework_id
+                     parser=settings.get('parser', 'default'))
 
     def get_cargo(self):
         if isinstance(self.cargo, list):
@@ -155,16 +142,16 @@ class Cargo(TestFramework):
 
         path = []
 
-        if self.custom_prefix is not None:
-            path += self.custom_prefix.split(TEST_SEPARATOR)
+        if self.suite.custom_prefix is not None:
+            path += self.suite.custom_prefix.split(TEST_SEPARATOR)
 
-        path += common.get_file_prefix(discovery_file, path_prefix_style=self.path_prefix_style)
+        path += common.get_file_prefix(discovery_file, path_prefix_style=self.suite.path_prefix_style)
         path += json_data['name'].split('::')
 
         run_id = json_data['name']
 
         return DiscoveredTest(
-            full_name=path, framework_id=self.framework_id, run_id=run_id, report_id=run_id,
+            full_name=path, suite_id=self.suite.suite_id, run_id=run_id, report_id=run_id,
             location=TestLocation(executable='cargo', file=json_data['source_path'], line=json_data['start_line']))
 
     def parse_discovery(self, output: str, working_directory: str) -> List[DiscoveredTest]:
@@ -190,11 +177,11 @@ class Cargo(TestFramework):
 
         parser = common.get_generic_parser(parser=self.parser,
                                            test_data=self.test_data,
-                                           framework_id=self.framework_id,
+                                           suite_id=self.suite.suite_id,
                                            executable='cargo')
 
         if parser is None:
-            parser = OutputParser(self.test_data, self.framework_id)
+            parser = OutputParser(self.test_data, self.suite.suite_id)
 
         run_args = self.get_cargo() + self.run_args + self.args + test_ids
         process.get_output_streamed(run_args,
