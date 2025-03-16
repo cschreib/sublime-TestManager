@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional
 
+from .test_framework import FrameworkError
 from .test_data import TestData
 
 
@@ -21,10 +22,15 @@ class TestSuite:
 
     @staticmethod
     def from_json(test_data: TestData, project_root_dir: str, settings: Dict):
+        if 'id' not in settings:
+            raise FrameworkError('Missing "id" in suite definition.')
+        if 'framework' not in settings:
+            raise FrameworkError('Missing "framework" in suite definition.')
+
         return TestSuite(suite_id=settings['id'],
                          test_data=test_data,
                          project_root_dir=project_root_dir,
-                         custom_prefix=settings['custom_prefix'],
+                         custom_prefix=settings.get('custom_prefix', None),
                          path_prefix_style=settings.get('path_prefix_style', 'full'),
                          framework_name=settings['framework'],
                          framework_settings=settings)

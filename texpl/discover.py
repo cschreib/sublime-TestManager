@@ -11,6 +11,7 @@ from sublime_plugin import WindowCommand
 from .helpers import TestDataHelper
 from .test_suite import TestSuite
 from .test_data import DiscoveryError, TestData, clear_test_data
+from .test_framework import FrameworkError
 from .util import SettingsHelper
 
 logger = logging.getLogger('TestExplorer.discovery')
@@ -78,7 +79,11 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper)
             return
 
         root_dir = os.path.dirname(project)
-        suites = [TestSuite.from_json(data, root_dir, f) for f in suites_json]
+        try:
+            suites = [TestSuite.from_json(data, root_dir, f) for f in suites_json]
+        except FrameworkError as e:
+            sublime.error_message(e.message)
+            return
 
         sublime.set_timeout_async(partial(self.discover_tests, data, suites))
 
