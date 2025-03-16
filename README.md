@@ -6,8 +6,8 @@
 
 This extension for Sublime Text 4 allows listing, running, and inspecting the results of tests. It currently supports the following test frameworks:
 
- - C++: Catch2, doctest, GoogleTest
- - Python: pytest
+ - C++: [Catch2](https://github.com/catchorg/Catch2/), [snitch](https://github.com/snitch-org/snitch) (using Catch2), [doctest](https://github.com/doctest/doctest), [GoogleTest](https://github.com/google/googletest)
+ - Python: [pytest](https://docs.pytest.org/en/stable/), unittest (using pytest)
  - Rust: cargo test (nightly only)
 
 The core architecture is language agnostic, and can work in principle with any language or framework not listed above. However, each framework generally has its own command-line interface and reporting format, which requires bespoke logic to handle. If your favorite test framework is not listed above, you can write your own runner/parser and [register it with TestExplorer](#register-custom-framework).
@@ -59,8 +59,8 @@ Inside the `"test_suites"` array, you can list as many test suites as you need. 
  - `"framework"`: The name of the framework used to implement this test suite. This determines how tests are discovered and run, and also sets up a suitable default parser. Possible values:
     - `"gtest"`: GoogleTest (C++).
     - `"doctest-cpp"`: doctest (C++).
-    - `"catch2"`: Catch2 (C++).
-    - `"pytest"`: pytest (Python).
+    - `"catch2"`: Catch2 or snitch (C++).
+    - `"pytest"`: pytest or unittest (Python).
     - `"cargo"`: cargo test (Rust).
  - "path_prefix_style": This determines how file paths are displayed in the test list. This includes for example the paths to test executables, or the paths to test files. Possible values:
     - `"full"`: (default) Show the full file paths, relative to the root of the project.
