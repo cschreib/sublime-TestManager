@@ -14,21 +14,21 @@ from .test_data import (ROOT_NAME, TestList, get_test_stats, TestItem, TestData,
                         RunStatus, test_name_to_path, test_path_to_name)
 
 
-logger = logging.getLogger('TestExplorer.status')
+logger = logging.getLogger('TestManager.status')
 
 GOTO_DEFAULT = 'list-top'
 
-TEST_EXPLORER_VIEW_TITLE = '*test-explorer*: '
-TEST_EXPLORER_VIEW_SYNTAX = 'Packages/TestExplorer/syntax/TestExplorer.tmLanguage'
-TEST_EXPLORER_VIEW_SETTINGS = {
+TEST_MANAGER_VIEW_TITLE = '*test-list*: '
+TEST_MANAGER_VIEW_SYNTAX = 'Packages/TestManager/syntax/TestList.sublime-syntax'
+TEST_MANAGER_VIEW_SETTINGS = {
     'translate_tabs_to_spaces': False,
     'draw_white_space': 'none',
     'draw_unicode_white_space': 'none',
     'word_wrap': False,
-    'test_explorer': True,
+    'test_list': True,
 }
 
-TEST_EXPLORER_DEFAULT_VISIBILITY = {
+TEST_MANAGER_DEFAULT_VISIBILITY = {
     'failed': True,
     'crashed': True,
     'stopped': True,
@@ -37,7 +37,7 @@ TEST_EXPLORER_DEFAULT_VISIBILITY = {
     'not_run': True
 }
 
-SECTION_SELECTOR_PREFIX = 'meta.test-explorer.'
+SECTION_SELECTOR_PREFIX = 'meta.test-manager.'
 
 END_OF_NAME_MARKER = '\u200B'
 
@@ -78,7 +78,7 @@ STATUS_NAME = {
 NO_TESTS_FOUND = "No test found. Press 'd' to run discovery."
 NO_TESTS_VISIBLE = "No test to show with the current filters."
 
-TEST_EXPLORER_HELP = """
+TEST_MANAGER_HELP = """
 # Running:
 #    d = run test discovery
 #    s = run app/suite/case, S = run all tests
@@ -101,7 +101,7 @@ TEST_EXPLORER_HELP = """
 # Legend:"""
 
 
-class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
+class TestManagerListBuilder(TestDataHelper, SettingsHelper):
 
     def build_list(self, data: TestData) -> Tuple[str, Dict[str, int]]:
         status = ''
@@ -177,8 +177,8 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         add_line('')
 
         # Add help text.
-        if settings.get('explorer_show_help', True):
-            for line in TEST_EXPLORER_HELP.split('\n'):
+        if settings.get('list_show_help', True):
+            for line in TEST_MANAGER_HELP.split('\n'):
                 add_line(line)
 
             for status_id in ['not_run', 'stopped', 'queued', 'running', 'skipped', 'failed', 'crashed', 'passed']:
@@ -342,7 +342,7 @@ class TestExplorerListBuilder(TestDataHelper, SettingsHelper):
         return [(item.full_name, self.build_info(item, line, max_length)) for item, line in lines], max_length
 
 
-class TestExplorerTextCmd:
+class TestManagerTextCmd:
 
     # selection commands
     def get_first_point(self):
@@ -361,7 +361,7 @@ class TestExplorerTextCmd:
         for selection in sels:
             lines = self.view.lines(selection)
             for line in lines:
-                if self.view.score_selector(line.begin(), 'meta.test-explorer.test-list.line') > 0:
+                if self.view.score_selector(line.begin(), 'meta.test-manager.test-list.line') > 0:
                     selected_lines.append(line)
         return selected_lines
 
@@ -384,10 +384,10 @@ class TestExplorerTextCmd:
         return self.get_all_leaf_regions() + self.get_all_node_regions()
 
     def get_all_leaf_regions(self):
-        return self.view.find_by_selector('meta.test-explorer.test-list.leaf')
+        return self.view.find_by_selector('meta.test-manager.test-list.leaf')
 
     def get_all_node_regions(self):
-        return self.view.find_by_selector('meta.test-explorer.test-list.node')
+        return self.view.find_by_selector('meta.test-manager.test-list.node')
 
     def get_item_in_region(self, region: sublime.Region, line_map: Optional[Dict[str, str]] = None) -> str:
         if line_map is None:
@@ -450,7 +450,7 @@ class TestExplorerTextCmd:
         return self.get_item_in_region(r) if r else None
 
 
-class TestExplorerListCommand(WindowCommand, TestDataHelper):
+class TestManagerListCommand(WindowCommand, TestDataHelper):
     """
     Documentation coming soon.
     """
@@ -468,14 +468,14 @@ class TestExplorerListCommand(WindowCommand, TestDataHelper):
             project = self.get_project()
             assert project is not None
 
-            title = TEST_EXPLORER_VIEW_TITLE + os.path.splitext(os.path.basename(project))[0]
+            title = TEST_MANAGER_VIEW_TITLE + os.path.splitext(os.path.basename(project))[0]
             view.set_name(title)
-            view.set_syntax_file(TEST_EXPLORER_VIEW_SYNTAX)
+            view.set_syntax_file(TEST_MANAGER_VIEW_SYNTAX)
             view.set_scratch(True)
             view.set_read_only(True)
 
             view.settings().set('test_view', 'list')
-            view.settings().set('visible_tests', TEST_EXPLORER_DEFAULT_VISIBILITY)
+            view.settings().set('visible_tests', TEST_MANAGER_DEFAULT_VISIBILITY)
             view.settings().set('focus_test_path', [])
             view.settings().set('test_data_full_path', data_location)
             view.settings().set('tab_size', 2)
@@ -483,20 +483,20 @@ class TestExplorerListCommand(WindowCommand, TestDataHelper):
             separators = view.settings().get('word_separators', '')
             view.settings().set('word_separators', separators + END_OF_NAME_MARKER)
 
-            for key, val in list(TEST_EXPLORER_VIEW_SETTINGS.items()):
+            for key, val in list(TEST_MANAGER_VIEW_SETTINGS.items()):
                 view.settings().set(key, val)
 
             views = [view]
 
         for view in views:
-            view.run_command('test_explorer_refresh')
+            view.run_command('test_manager_refresh')
 
         if views:
             views[0].window().focus_view(views[0])
             views[0].window().bring_to_front()
 
 
-class TestExplorerMoveCmd(TestExplorerTextCmd):
+class TestManagerMoveCmd(TestManagerTextCmd):
 
     def goto(self, goto, no_scroll=False):
         parts = goto.split(':')
@@ -552,15 +552,15 @@ class TestExplorerMoveCmd(TestExplorerTextCmd):
             self.move_to_list_top()
 
     def move_to_list_top(self, no_scroll=False):
-        regs = self.view.find_by_selector('meta.test-explorer.test-list.node')
+        regs = self.view.find_by_selector('meta.test-manager.test-list.node')
         if not regs:
-            regs = self.view.find_by_selector('markup.inserted.test-explorer.no-tests')
+            regs = self.view.find_by_selector('markup.inserted.test-manager.no-tests')
 
         if regs:
             self.move_to_region(regs[0], no_scroll=no_scroll)
 
 
-class TestExplorerReplaceCommand(TextCommand, TestExplorerMoveCmd):
+class TestManagerReplaceCommand(TextCommand, TestManagerMoveCmd):
 
     def is_visible(self):
         return False
@@ -577,7 +577,7 @@ class TestExplorerReplaceCommand(TextCommand, TestExplorerMoveCmd):
             self.goto(GOTO_DEFAULT, no_scroll=no_scroll)
 
 
-class TestExplorerPartialReplaceCommand(TextCommand, TestExplorerMoveCmd):
+class TestManagerPartialReplaceCommand(TextCommand, TestManagerMoveCmd):
 
     def is_visible(self):
         return False
@@ -599,7 +599,7 @@ class TestExplorerPartialReplaceCommand(TextCommand, TestExplorerMoveCmd):
             self.goto('line:' + str(selection), no_scroll=no_scroll)
 
 
-class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerListBuilder):
+class TestManagerRefreshCommand(TextCommand, TestManagerTextCmd, TestManagerListBuilder):
 
     def is_visible(self):
         return False
@@ -609,10 +609,10 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
             if len(hints) == 0:
                 tests, structure = self.build_list(data)
                 self.view.settings().set('test_structure', structure)
-                self.view.run_command('test_explorer_replace', {'goto': goto, 'tests': tests, 'no_scroll': no_scroll})
+                self.view.run_command('test_manager_replace', {'goto': goto, 'tests': tests, 'no_scroll': no_scroll})
             else:
                 tests = self.update_list(data, self.view.settings().get('test_structure'), hints)
-                self.view.run_command('test_explorer_partial_replace', {
+                self.view.run_command('test_manager_partial_replace', {
                                       'goto': goto, 'tests': tests, 'no_scroll': no_scroll})
 
         except Exception as e:
@@ -632,7 +632,7 @@ class TestExplorerRefreshCommand(TextCommand, TestExplorerTextCmd, TestExplorerL
         sublime.set_timeout(partial(self.refresh, data, goto, no_scroll, hints))
 
 
-class TestExplorerRefreshAllCommand(ApplicationCommand, TestDataHelper):
+class TestManagerRefreshAllCommand(ApplicationCommand, TestDataHelper):
 
     def run(self, data_location=None, hints=[]):
         if not data_location:
@@ -640,17 +640,17 @@ class TestExplorerRefreshAllCommand(ApplicationCommand, TestDataHelper):
 
         views = find_views_for_data(data_location)
         for view in views:
-            view.run_command('test_explorer_refresh', {'no_scroll': True, 'hints': hints})
+            view.run_command('test_manager_refresh', {'no_scroll': True, 'hints': hints})
 
 
-class TestExplorerEventListener(EventListener, SettingsHelper):
+class TestManagerEventListener(EventListener, SettingsHelper):
 
     def on_activated(self, view):
-        if view.settings().get('test_view') == 'list' and self.get_setting('explorer_update_on_focus', True):
-            view.run_command('test_explorer_refresh')
+        if view.settings().get('test_view') == 'list' and self.get_setting('list_update_on_focus', True):
+            view.run_command('test_manager_refresh')
 
 
-class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
+class TestManagerToggleShowCommand(TextCommand, TestManagerTextCmd):
 
     def is_visible(self):
         return False
@@ -670,10 +670,10 @@ class TestExplorerToggleShowCommand(TextCommand, TestExplorerTextCmd):
                 visibility['stopped'] = visibility['not_run']
 
         self.view.settings().set('visible_tests', visibility)
-        self.view.run_command('test_explorer_refresh')
+        self.view.run_command('test_manager_refresh')
 
 
-class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, SettingsHelper):
+class TestManagerOpenFile(TextCommand, TestManagerTextCmd, TestDataHelper, SettingsHelper):
 
     def is_visible(self):
         return False
@@ -688,7 +688,7 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
             return
 
         root_folder = os.path.dirname(project)
-        transient = self.get_setting('explorer_open_files_transient', True) is True
+        transient = self.get_setting('list_open_files_transient', True) is True
         tests = self.get_selected_tests()
         test_list = data.get_test_list()
         window = self.view.window()
@@ -717,7 +717,7 @@ class TestExplorerOpenFile(TextCommand, TestExplorerTextCmd, TestDataHelper, Set
                 window.open_file(location, sublime.ENCODED_POSITION)
 
 
-class TestExplorerSetRootCommand(TextCommand, TestExplorerTextCmd, TestDataHelper):
+class TestManagerSetRootCommand(TextCommand, TestManagerTextCmd, TestDataHelper):
 
     def is_visible(self):
         return False
@@ -747,4 +747,4 @@ class TestExplorerSetRootCommand(TextCommand, TestExplorerTextCmd, TestDataHelpe
             self.view.settings().set('focus_test_path', test_name_to_path(tests[0]))
             goto = 'list-top'
 
-        self.view.run_command('test_explorer_refresh', {'goto': goto})
+        self.view.run_command('test_manager_refresh', {'goto': goto})

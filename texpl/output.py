@@ -9,15 +9,15 @@ from sublime_plugin import ApplicationCommand, WindowCommand, TextCommand, ViewE
 from .helpers import TestDataHelper
 from .util import SettingsHelper, find_views_for_test
 from .test_data import test_name_to_path
-from .list import TestExplorerTextCmd
+from .list import TestManagerTextCmd
 
 
-logger = logging.getLogger('TestExplorer.output')
+logger = logging.getLogger('TestManager.output')
 
-TEST_EXPLORER_TEST_OUTPUT_TITLE = '*test-output*: '
+TEST_MANAGER_TEST_OUTPUT_TITLE = '*test-output*: '
 
 
-class TestExplorerOpenSelectedOutput(TextCommand, TestExplorerTextCmd):
+class TestManagerOpenSelectedOutput(TextCommand, TestManagerTextCmd):
 
     def is_visible(self):
         return False
@@ -26,10 +26,10 @@ class TestExplorerOpenSelectedOutput(TextCommand, TestExplorerTextCmd):
         tests = self.get_selected_tests()
 
         for test in tests:
-            self.view.window().run_command('test_explorer_open_run_output', {'test': test})
+            self.view.window().run_command('test_manager_open_run_output', {'test': test})
 
 
-class TestExplorerOpenSingleOutput(WindowCommand, TestDataHelper):
+class TestManagerOpenSingleOutput(WindowCommand, TestDataHelper):
 
     def is_visible(self):
         return True
@@ -50,10 +50,10 @@ class TestExplorerOpenSingleOutput(WindowCommand, TestDataHelper):
         self.window.show_quick_panel(choices, partial(self.open_output, choices), sublime.MONOSPACE_FONT)
 
     def open_output(self, choices: List[str], test_id: int):
-        self.window.run_command('test_explorer_open_run_output', {'test': choices[test_id]})
+        self.window.run_command('test_manager_open_run_output', {'test': choices[test_id]})
 
 
-class TestExplorerOpenRunOutput(WindowCommand, TestDataHelper):
+class TestManagerOpenRunOutput(WindowCommand, TestDataHelper):
 
     def is_visible(self):
         return False
@@ -69,7 +69,7 @@ class TestExplorerOpenRunOutput(WindowCommand, TestDataHelper):
         if not views:
             view = self.window.new_file()
 
-            title = TEST_EXPLORER_TEST_OUTPUT_TITLE + test
+            title = TEST_MANAGER_TEST_OUTPUT_TITLE + test
             view.set_name(title)
             view.set_scratch(True)
             view.set_read_only(True)
@@ -81,7 +81,7 @@ class TestExplorerOpenRunOutput(WindowCommand, TestDataHelper):
             views = [view]
 
         for view in views:
-            view.run_command('test_explorer_output_refresh')
+            view.run_command('test_manager_output_refresh')
 
         if views:
             views[0].window().focus_view(views[0])
@@ -89,11 +89,11 @@ class TestExplorerOpenRunOutput(WindowCommand, TestDataHelper):
 
             refresh_interval = self.get_setting('output_refresh_interval', 0.1) * 1000
 
-            views[0].run_command('test_explorer_output_refresh')
+            views[0].run_command('test_manager_output_refresh')
             sublime.set_timeout(partial(refresh_loop, views[0], refresh_interval), refresh_interval)
 
 
-class TestExplorerOutputRefresh(TextCommand, TestDataHelper):
+class TestManagerOutputRefresh(TextCommand, TestDataHelper):
 
     def is_visible(self):
         return False
@@ -124,12 +124,12 @@ class TestExplorerOutputRefresh(TextCommand, TestDataHelper):
 
         self.view.set_read_only(True)
 
-        autoscroll = self.get_setting('explorer_output_auto_scroll', True) is True
+        autoscroll = self.get_setting('list_output_auto_scroll', True) is True
         if autoscroll and (replaced or was_at_end):
             self.view.show(self.view.size())
 
 
-class TestExplorerOutputRefreshAllCommand(ApplicationCommand, TestDataHelper):
+class TestManagerOutputRefreshAllCommand(ApplicationCommand, TestDataHelper):
 
     def run(self, data_location=None, test=''):
         if not data_location:
@@ -137,18 +137,18 @@ class TestExplorerOutputRefreshAllCommand(ApplicationCommand, TestDataHelper):
 
         views = find_views_for_test(data_location, test)
         for view in views:
-            view.run_command('test_explorer_output_refresh')
+            view.run_command('test_manager_output_refresh')
 
 
 def refresh_loop(view, refresh_interval):
     if view.window() is None or view.window().active_view() is None or view.id() != view.window().active_view().id():
         return
 
-    view.run_command('test_explorer_output_refresh')
+    view.run_command('test_manager_output_refresh')
     sublime.set_timeout(partial(refresh_loop, view, refresh_interval), refresh_interval)
 
 
-class TestExplorerOutputEventListener(ViewEventListener, SettingsHelper):
+class TestManagerOutputEventListener(ViewEventListener, SettingsHelper):
 
     def __init__(self, view):
         self.view = view
@@ -158,8 +158,8 @@ class TestExplorerOutputEventListener(ViewEventListener, SettingsHelper):
         return settings.get('test_view') == 'output'
 
     def on_activated(self):
-        if self.get_setting('explorer_update_on_focus', True):
+        if self.get_setting('list_update_on_focus', True):
             refresh_interval = self.get_setting('output_refresh_interval', 0.1) * 1000
 
-            self.view.run_command('test_explorer_output_refresh')
+            self.view.run_command('test_manager_output_refresh')
             sublime.set_timeout(partial(refresh_loop, self.view, refresh_interval), refresh_interval)

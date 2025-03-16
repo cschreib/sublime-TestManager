@@ -1,55 +1,55 @@
 [
     // Refresh
-    { "keys": ["r"], "command": "test_explorer_refresh",
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    { "keys": ["r"], "command": "test_manager_refresh",
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list" }]
     },
-    { "keys": ["d"], "command": "test_explorer_discover",
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    { "keys": ["d"], "command": "test_manager_discover",
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list" }]
     },
 
     // Display
-    { "keys": ["f"], "command": "test_explorer_toggle_show", "args": {"toggle": "failed"},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    { "keys": ["f"], "command": "test_manager_toggle_show", "args": {"toggle": "failed"},
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list" }]
     },
-    { "keys": ["i"], "command": "test_explorer_toggle_show", "args": {"toggle": "skipped"},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    { "keys": ["i"], "command": "test_manager_toggle_show", "args": {"toggle": "skipped"},
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list" }]
     },
-    { "keys": ["p"], "command": "test_explorer_toggle_show", "args": {"toggle": "passed"},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    { "keys": ["p"], "command": "test_manager_toggle_show", "args": {"toggle": "passed"},
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list" }]
     },
-    { "keys": ["n"], "command": "test_explorer_toggle_show", "args": {"toggle": "not_run"},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    { "keys": ["n"], "command": "test_manager_toggle_show", "args": {"toggle": "not_run"},
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list" }]
     },
-    { "keys": ["a"], "command": "test_explorer_toggle_show", "args": {"toggle": "all"},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    { "keys": ["a"], "command": "test_manager_toggle_show", "args": {"toggle": "all"},
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list" }]
     },
-    { "keys": ["e"], "command": "test_explorer_set_root",
-        "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line" }]
+    { "keys": ["e"], "command": "test_manager_set_root",
+        "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-manager.test-list.line" }]
     },
-    { "keys": ["backspace"], "command": "test_explorer_set_root", "args": {"parent": true},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer" }]
+    { "keys": ["backspace"], "command": "test_manager_set_root", "args": {"parent": true},
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list" }]
     },
 
     // Open command
-    { "keys": ["enter"], "command": "test_explorer_open_file",
+    { "keys": ["enter"], "command": "test_manager_open_file",
         "context": [
-            { "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line"}
+            { "key": "selector", "operator": "equal", "operand": "meta.test-manager.test-list.line"}
         ]
     },
-    { "keys": ["o"], "command": "test_explorer_open_selected_output",
+    { "keys": ["o"], "command": "test_manager_open_selected_output",
         "context": [
-            { "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line"}
+            { "key": "selector", "operator": "equal", "operand": "meta.test-manager.test-list.line"}
         ]
     },
 
     // Run tests
-    { "keys": ["S"], "command": "test_explorer_start", "args": {"start": "all"},
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]
+    { "keys": ["S"], "command": "test_manager_start", "args": {"start": "all"},
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list"}]
     },
-    { "keys": ["s"], "command": "test_explorer_start_selected",
-        "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-explorer.test-list.line"}]
+    { "keys": ["s"], "command": "test_manager_start_selected",
+        "context": [{ "key": "selector", "operator": "equal", "operand": "meta.test-manager.test-list.line"}]
     },
-    { "keys": ["k"], "command": "test_explorer_stop",
-        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]
+    { "keys": ["k"], "command": "test_manager_stop",
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list"}]
     },
 ]

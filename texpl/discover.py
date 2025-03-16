@@ -14,7 +14,7 @@ from .test_data import DiscoveryError, TestData, clear_test_data
 from .errors import FrameworkError
 from .util import SettingsHelper
 
-logger = logging.getLogger('TestExplorer.discovery')
+logger = logging.getLogger('TestManager.discovery')
 
 
 CANNOT_DISCOVER_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait or "
@@ -28,7 +28,7 @@ NO_TEST_SUITE_CONFIGURED = ("No test suite is currently configured.")
 MAX_ERROR_LENGTH = 256
 
 
-class TestExplorerResetCommand(WindowCommand, TestDataHelper):
+class TestManagerResetCommand(WindowCommand, TestDataHelper):
 
     def is_visible(self):
         return True
@@ -49,10 +49,10 @@ class TestExplorerResetCommand(WindowCommand, TestDataHelper):
                 return
 
             data.init()
-            sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})
+            sublime.run_command('test_manager_refresh_all', {'data_location': data.location})
 
 
-class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
+class TestManagerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
 
     def is_visible(self):
         return True
@@ -88,9 +88,9 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper)
         sublime.set_timeout_async(partial(self.discover_tests, data, suites))
 
     def display_in_panel(self, content):
-        panel_name = 'TestExplorer.discovery'
+        panel_name = 'TestManager.discovery'
         panel = self.window.create_output_panel(panel_name)
-        panel.run_command('test_explorer_panel_write', {'content': content})
+        panel.run_command('test_manager_panel_write', {'content': content})
         self.window.run_command('show_panel', {'panel': f'output.{panel_name}'})
 
     def discover_tests(self, data: TestData, suites: List[TestSuite]):
@@ -124,4 +124,4 @@ class TestExplorerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper)
             disc_id += 1
 
         data.notify_discovered_tests(discovered_tests, discovery_time=start)
-        sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})
+        sublime.run_command('test_manager_refresh_all', {'data_location': data.location})

@@ -20,8 +20,8 @@ def get_thread_stack(thread):
     return traceback.format_stack(f=frame)
 
 
-logger = logging.getLogger('TestExplorer.cmd')
-worker_logger = logging.getLogger('TestExplorerWorker')
+logger = logging.getLogger('TestManager.cmd')
+worker_logger = logging.getLogger('TestManagerWorker')
 
 DECODING_ERROR = ("Could not decode output from {bin}. The following encodings "
                   "were tried:\n\n"

@@ -1,6 +1,6 @@
 [
     // overwrite some stuff
-    { "keys": ["ctrl+s"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]},
-    { "keys": ["ctrl+z"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]},
-    { "keys": ["ctrl+y"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]},
+    { "keys": ["ctrl+s"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list"}]},
+    { "keys": ["ctrl+z"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list"}]},
+    { "keys": ["ctrl+y"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list"}]},
 ]

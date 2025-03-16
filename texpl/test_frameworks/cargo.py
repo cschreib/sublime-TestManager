@@ -10,8 +10,8 @@ from ..test_data import (DiscoveredTest, TestLocation, TestData,
 from .. import process
 from . import common
 
-logger = logging.getLogger('TestExplorer.cargo')
-parser_logger = logging.getLogger('TestExplorerParser.cargo')
+logger = logging.getLogger('TestManager.cargo')
+parser_logger = logging.getLogger('TestManagerParser.cargo')
 
 
 def get_json(line: str):

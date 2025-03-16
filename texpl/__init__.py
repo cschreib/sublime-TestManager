@@ -5,22 +5,22 @@ __version__ = '1.0.0'
 
 # Import all the commands
 
-from .util import TestExplorerPanelWriteCommand, TestExplorerPanelAppendCommand
+from .util import TestManagerPanelWriteCommand, TestManagerPanelAppendCommand
 
-from .list import (TestExplorerListCommand, TestExplorerRefreshAllCommand, TestExplorerRefreshCommand,
-                   TestExplorerReplaceCommand, TestExplorerPartialReplaceCommand, TestExplorerToggleShowCommand,
-                   TestExplorerOpenFile, TestExplorerEventListener, TestExplorerSetRootCommand)
+from .list import (TestManagerListCommand, TestManagerRefreshAllCommand, TestManagerRefreshCommand,
+                   TestManagerReplaceCommand, TestManagerPartialReplaceCommand, TestManagerToggleShowCommand,
+                   TestManagerOpenFile, TestManagerEventListener, TestManagerSetRootCommand)
 
-from .output import (TestExplorerOpenSelectedOutput, TestExplorerOpenSingleOutput, TestExplorerOpenRunOutput,
-                     TestExplorerOutputRefresh, TestExplorerOutputRefreshAllCommand, TestExplorerOutputEventListener)
+from .output import (TestManagerOpenSelectedOutput, TestManagerOpenSingleOutput, TestManagerOpenRunOutput,
+                     TestManagerOutputRefresh, TestManagerOutputRefreshAllCommand, TestManagerOutputEventListener)
 
-from .discover import (TestExplorerDiscoverCommand, TestExplorerResetCommand)
+from .discover import (TestManagerDiscoverCommand, TestManagerResetCommand)
 
-from .run import (TestExplorerStartSelectedCommand, TestExplorerStartCommand, TestExplorerStopCommand)
+from .run import (TestManagerStartSelectedCommand, TestManagerStartCommand, TestManagerStopCommand)
 
-from .suites import (TestExplorerAddTestSuiteCommand)
+from .suites import (TestManagerAddTestSuiteCommand)
 
-from .testexplorer import (TestExplorerVersionCommand)
+from .testmanager import (TestManagerVersionCommand)
 
 # import test frameworks handlers
 

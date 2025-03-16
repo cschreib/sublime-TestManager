@@ -10,10 +10,10 @@ from .test_framework import get_available_frameworks, get_framework_default_sett
 from .helpers import TestDataHelper, NO_PROJECT_DIALOG
 from .util import SettingsHelper, merge_deep
 
-logger = logging.getLogger('TestExplorer.setup')
+logger = logging.getLogger('TestManager.setup')
 
 
-class TestExplorerAddTestSuiteCommand(WindowCommand, TestDataHelper, SettingsHelper):
+class TestManagerAddTestSuiteCommand(WindowCommand, TestDataHelper, SettingsHelper):
 
     def is_visible(self):
         return True
@@ -24,7 +24,7 @@ class TestExplorerAddTestSuiteCommand(WindowCommand, TestDataHelper, SettingsHel
 
         new_data = {
             'settings': {
-                'TestExplorer': {
+                'TestManager': {
                     'test_suites': existing_suites
                 }
             }

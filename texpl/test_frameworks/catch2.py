@@ -12,7 +12,7 @@ from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
 from .. import process
 from . import common
 
-logger = logging.getLogger('TestExplorer.catch2')
+logger = logging.getLogger('TestManager.catch2')
 
 # The content inside these elements is controlled by Catch2, don't assume it is standard output.
 captured_elements = ['Info', 'Original', 'Expanded',

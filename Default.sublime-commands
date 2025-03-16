@@ -1,10 +1,10 @@
 [
-    { "caption": "TestExplorer: List Tests", "command": "test_explorer_list"},
-    { "caption": "TestExplorer: Reset Test Data", "command": "test_explorer_reset"},
-    { "caption": "TestExplorer: Discover Tests", "command": "test_explorer_discover"},
-    { "caption": "TestExplorer: Run All Tests", "command": "test_explorer_start", "args": {"start": "all"}},
-    { "caption": "TestExplorer: Run Test", "command": "test_explorer_start", "args": {"start": "one"}},
-    { "caption": "TestExplorer: Open Run Output", "command": "test_explorer_open_single_output"},
-    { "caption": "TestExplorer: Stop All Tests", "command": "test_explorer_stop"},
-    { "caption": "TestExplorer: Add Test Suite", "command": "test_explorer_add_test_suite"},
+    { "caption": "TestManager: List Tests", "command": "test_manager_list"},
+    { "caption": "TestManager: Reset Test Data", "command": "test_manager_reset"},
+    { "caption": "TestManager: Discover Tests", "command": "test_manager_discover"},
+    { "caption": "TestManager: Run All Tests", "command": "test_manager_start", "args": {"start": "all"}},
+    { "caption": "TestManager: Run Test", "command": "test_manager_start", "args": {"start": "one"}},
+    { "caption": "TestManager: Open Run Output", "command": "test_manager_open_single_output"},
+    { "caption": "TestManager: Stop All Tests", "command": "test_manager_stop"},
+    { "caption": "TestManager: Add Test Suite", "command": "test_manager_add_test_suite"},
 ]

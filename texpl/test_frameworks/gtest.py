@@ -11,8 +11,8 @@ from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
 from .. import process
 from . import common
 
-logger = logging.getLogger('TestExplorer.gtest')
-parser_logger = logging.getLogger('TestExplorerParser.gtest')
+logger = logging.getLogger('TestManager.gtest')
+parser_logger = logging.getLogger('TestManagerParser.gtest')
 
 
 class OutputParser:

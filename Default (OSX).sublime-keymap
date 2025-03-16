@@ -1,6 +1,6 @@
 [
     // overwrite some stuff
-    { "keys": ["super+s"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]},
-    { "keys": ["super+z"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]},
-    { "keys": ["super+y"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-explorer"}]},
+    { "keys": ["super+s"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list"}]},
+    { "keys": ["super+z"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list"}]},
+    { "keys": ["super+y"], "command": "noop", "context": [{ "key": "selector", "operator": "equal", "operand": "text.test-list"}]},
 ]

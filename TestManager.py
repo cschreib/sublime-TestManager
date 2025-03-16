@@ -15,16 +15,16 @@ def setup_log_file(logger, filename):
 logging.basicConfig(level=logging.WARNING, format=log_format)
 logging.basicConfig(filename='~/.subl.log', encoding='utf-8', level=logging.DEBUG)
 
-logger = logging.getLogger('TestExplorer')
-worker_logger = logging.getLogger('TestExplorerWorker')
-parser_logger = logging.getLogger('TestExplorerParser')
+logger = logging.getLogger('TestManager')
+worker_logger = logging.getLogger('TestManagerWorker')
+parser_logger = logging.getLogger('TestManagerParser')
 
 import sublime
 from .texpl import *
 
 
 def plugin_loaded():
-    settings = sublime.load_settings('TestExplorer.sublime-settings')
+    settings = sublime.load_settings('TestManager.sublime-settings')
 
     # set log level
     lvl = getattr(logging, settings.get('log_level', '').upper(), logging.WARNING)

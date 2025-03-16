@@ -10,13 +10,13 @@ import sublime
 from sublime_plugin import WindowCommand, TextCommand
 
 from .helpers import TestDataHelper
-from .list import TestExplorerTextCmd
+from .list import TestManagerTextCmd
 from .test_suite import TestSuite
 from .discover import NO_TEST_SUITE_CONFIGURED
 from .util import SettingsHelper
 from .test_data import TestData, TestList, TestItem, StartedRun, FinishedRun, test_name_to_path, ROOT_NAME
 
-logger = logging.getLogger('TestExplorer.runner')
+logger = logging.getLogger('TestManager.runner')
 
 TEST_STOP_CONFIRM_DIALOG = ("You are about to stop all currently-running tests. Are you sure?")
 
@@ -41,7 +41,7 @@ class TestRunHelper(SettingsHelper):
         if not self.running:
             return
 
-        sublime.run_command('test_explorer_refresh_all', {'data_location': self.data_location})
+        sublime.run_command('test_manager_refresh_all', {'data_location': self.data_location})
 
         sublime.set_timeout(self.refresh_loop, self.refresh_interval)
 
@@ -77,7 +77,7 @@ class TestRunHelper(SettingsHelper):
             start = time.time()
 
             data.notify_run_started(StartedRun(test_paths))
-            sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})
+            sublime.run_command('test_manager_refresh_all', {'data_location': data.location})
 
             self.running = True
             self.data_location = data.location
@@ -96,7 +96,7 @@ class TestRunHelper(SettingsHelper):
             finally:
                 data.notify_run_finished(FinishedRun(test_paths))
                 self.running = False
-                sublime.run_command('test_explorer_refresh_all', {'data_location': data.location})
+                sublime.run_command('test_manager_refresh_all', {'data_location': data.location})
 
             end = time.time()
             logger.info(f'test run duration: {end - start}')
@@ -105,7 +105,7 @@ class TestRunHelper(SettingsHelper):
             logger.error("error when running tests: %s\n%s", e, traceback.format_exc())
 
 
-class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, TestRunHelper, TestExplorerTextCmd):
+class TestManagerStartSelectedCommand(TextCommand, TestDataHelper, TestRunHelper, TestManagerTextCmd):
 
     def is_visible(self):
         return False
@@ -140,7 +140,7 @@ class TestExplorerStartSelectedCommand(TextCommand, TestDataHelper, TestRunHelpe
             return
 
 
-class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, TestExplorerTextCmd):
+class TestManagerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, TestManagerTextCmd):
 
     def run(self, start='all'):
         project = self.get_project()
@@ -176,7 +176,7 @@ class TestExplorerStartCommand(WindowCommand, TestDataHelper, TestRunHelper, Tes
         sublime.set_timeout_async(partial(self.run_tests, data, test_list, suites, [choices[test_id]]))
 
 
-class TestExplorerStopCommand(WindowCommand, TestDataHelper):
+class TestManagerStopCommand(WindowCommand, TestDataHelper):
 
     def run(self):
         data = self.get_test_data()

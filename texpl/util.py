@@ -9,12 +9,12 @@ from typing import Optional
 import sublime
 from sublime_plugin import TextCommand
 
-logger = logging.getLogger('TestExplorer.util')
+logger = logging.getLogger('TestManager.util')
 
 # Constants
 
-SETTINGS_FILE = 'TestExplorer.sublime-settings'
-SETTINGS_ROOT = 'TestExplorer'
+SETTINGS_FILE = 'TestManager.sublime-settings'
+SETTINGS_ROOT = 'TestManager'
 
 
 # Compatibility
@@ -94,7 +94,7 @@ class StatusSpinner(object):
 
 # Panel Helper
 
-class TestExplorerPanelWriteCommand(TextCommand):
+class TestManagerPanelWriteCommand(TextCommand):
 
     def is_visible(self):
         return False
@@ -107,7 +107,7 @@ class TestExplorerPanelWriteCommand(TextCommand):
         self.view.set_read_only(True)
 
 
-class TestExplorerPanelAppendCommand(TextCommand):
+class TestManagerPanelAppendCommand(TextCommand):
 
     def is_visible(self):
         return False

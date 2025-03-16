@@ -1,0 +1,199 @@
+%YAML 1.2
+---
+name: TestList
+scope: text.test-list
+hidden: true
+
+contexts:
+  main:
+    - include: header
+    - include: test-list
+    - include: no-tests-found
+    - include: help
+
+  help-key:
+    - match: (?:(?:ctrl\+|super\+|alt\+|shift\+)*\w)?(?:[\w-]-)?[\w\+\-]*
+      scope: string.other.test-list.help.key
+      pop: true
+
+  help:
+    - match: '^#'
+      push:
+        - meta_scope: comment.test-list.help
+        - match: ^(?!\n)\s*
+          push:
+            - match: '(?=[\w+]+ =)'
+              set: [help-key]
+            - match: (?=\[)
+              set: [status-marker]
+        - match: ^\n
+          pop: true
+
+  test-stats:
+    - match: (failed:0)
+      captures:
+        1: comment.other.test-list.tests.failed.none
+    - match: (failed:)([0-9]+)
+      captures:
+        1: comment.other.test-list.tests.failed.some
+        2: constant.numeric.other.test-list.tests.failed
+    - match: (skipped:0)
+      captures:
+        1: comment.other.test-list.tests.skipped.none
+    - match: (skipped:)([0-9]+)
+      captures:
+        1: comment.other.test-list.tests.skipped.some
+        2: constant.numeric.other.test-list.tests.skipped
+    - match: (passed:0)
+      captures:
+        1: comment.other.test-list.tests.passed.none
+    - match: (passed:)([0-9]+)
+      captures:
+        1: comment.other.test-list.tests.passed.some
+        2: constant.numeric.other.test-list.tests.passed
+    - match: (not-run:0)
+      captures:
+        1: comment.other.test-list.tests.not-run.none
+    - match: (not-run:)([0-9]+)
+      captures:
+        1: comment.other.test-list.tests.not-run.some
+        2: constant.numeric.other.test-list.tests.not-run
+    - match: (total:)([0-9]+)
+      captures:
+        1: comment.other.test-list.tests.total
+        2: constant.numeric.other.test-list.tests.total
+    - match: (last-run:)([\w\s]+)
+      captures:
+        1: comment.other.test-list.tests.last-run
+        2: string.other.test-list.time-delta
+    - match: (last-run:)(--)
+      captures:
+        1: comment.other.test-list.tests.last-run
+        2: string.other.test-list.time-delta
+    - match: \s*\|\s*
+      scope: comment.test-list.stats.separator
+
+  parenthesized-test-stats:
+    - match: \s*\(
+      scope: comment.test-list.test-stats
+      push:
+        - include: test-stats
+        - match: \)
+          scope: comment.test-list.test-stats
+          pop: true
+    - match: (?=\n)
+      pop: true
+
+  header:
+    - match: '^Last discovery:\s+([^\(\n]+)(\([^\)]+\))?\n'
+      scope: comment.test-list.header.discovery
+      captures:
+        1: string.other.test-list.time-delta
+        2: comment.other.test-list.datetime
+
+    - match: '^Last discovery:\s+(--)\n'
+      scope: comment.test-list.header.last-run
+      captures:
+        1: string.other.test-list.time-delta
+        2: comment.other.test-list.datetime
+
+    - match: '^Last run:\s+([^\(\n]+)(\([^\)]+\))?\n'
+      scope: comment.test-list.header.last-run
+      captures:
+        1: string.other.test-list.time-delta
+        2: comment.other.test-list.datetime
+
+    - match: '^Last run:\s+(--)\n'
+      scope: comment.test-list.header.last-run
+      captures:
+        1: string.other.test-list.time-delta
+        2: comment.other.test-list.datetime
+
+    - match: '^Tests status:'
+      scope: comment.test-list.header.stats
+      push:
+        - include: test-stats
+        - match: (?=\n)
+          pop: true
+
+    - match: '^Showing:\s+'
+      scope: comment.test-list.header.showing
+      push:
+        - match: \[X\]\s+[\w\-]+
+          scope: text.test-list.showing.visible
+        - match: \[ \]\s+[\w\-]+
+          scope: comment.test-list.showing.not-visible
+        - match: \s*\|\s*
+          scope: comment.test-list.stats.separator
+        - match: \n
+          pop: true
+
+    - match: '^Focus:\s+'
+      scope: comment.test-list.header.focus
+      push:
+        - match: '<all>\n'
+          scope: comment.test-list.header.all-tests
+          pop: true
+        - match: '/'
+          scope: punctuation.section.list.test-list.separator
+        - match: \n
+          pop: true
+
+  status-marker:
+    - match: \[​‌.\]
+      scope: string.other.test-list.status-marker.failed
+      pop: true
+    - match: \[​‍.\]
+      scope: string.other.test-list.status-marker.crashed
+      pop: true
+    - match: \[​⁠.\]
+      scope: string.other.test-list.status-marker.stopped
+      pop: true
+    - match: \[​﻿.\]
+      scope: string.other.test-list.status-marker.skipped
+      pop: true
+    - match: \[‌​.\]
+      scope: string.other.test-list.status-marker.passed
+      pop: true
+    - match: \[​​.\]
+      scope: string.other.test-list.status-marker.not-run
+      pop: true
+    - match: \[‌‌.\]
+      scope: string.other.test-list.status-marker.running
+      pop: true
+    - match: \[‌‍.\]
+      scope: string.other.test-list.status-marker.queued
+      pop: true
+
+  node:
+    - match: ​(((?:.*)?/)?.*)​
+      captures:
+       1: meta.test-manager.test-list.node
+       2: comment.test-list.parent
+      pop: true
+
+  leaf:
+    - match: ​(((?:.*)?/)?.*)​
+      captures:
+        1: meta.test-manager.test-list.leaf
+        2: comment.test-list.parent
+      pop: true
+
+  test-list:
+    - match: '^Tests:\s*\n'
+      scope: constant.other.test-list.header
+      push:
+        - meta_scope: meta.test-manager.test-list.line
+        - match: ^(?!\n)\s*
+          push:
+            - match: \-
+              scope: punctuation.section.generic.test-list.fold-marker
+              set: [parenthesized-test-stats, node, status-marker]
+            - match: (?=\[)
+              set: [parenthesized-test-stats, leaf, status-marker]
+        - match: ^\n
+          pop: true
+
+  no-tests-found:
+    - match: ^No test.*\n
+      scope: markup.inserted.test-list.no-tests

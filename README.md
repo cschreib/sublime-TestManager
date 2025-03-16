@@ -1,4 +1,4 @@
-# TestExplorer
+# TestManager
 
 ![example](example.png)
 
@@ -10,24 +10,24 @@ This extension for Sublime Text 4 allows listing, running, and inspecting the re
  - Python: [pytest](https://docs.pytest.org/en/stable/), unittest (using pytest)
  - Rust: cargo test (nightly only)
 
-The core architecture is language agnostic, and can work in principle with any language or framework not listed above. However, each framework generally has its own command-line interface and reporting format, which requires bespoke logic to handle. If your favorite test framework is not listed above, you can write your own runner/parser and [register it with TestExplorer](#register-custom-framework).
+The core architecture is language agnostic, and can work in principle with any language or framework not listed above. However, each framework generally has its own command-line interface and reporting format, which requires bespoke logic to handle. If your favorite test framework is not listed above, you can write your own runner/parser and [register it with TestManager](#register-custom-framework).
 
 
 ## Installation
 
- 1. Install the TestExplorer package (e.g., from Package Control).
+ 1. Install the TestManager package (e.g., from Package Control).
  2. Open a Sublime Text project for which you want to run tests. A project is required, so if you don't have one already, create it.
  3. Edit your project settings ("Project > Edit Project") and define at least one test suite. See [Adding a test suite](#adding-a-test-suite) for details.
- 4. Run the command `TestExplorer: List Tests`. This should display an empty list.
+ 4. Run the command `TestManager: List Tests`. This should display an empty list.
  5. Press the `d` key to run test discovery. Your tests should now appear, and you are ready to go. Follow the help text at the bottom of the test list to get started.
  6. (optional) Configure custom color scheme for test statuses, for a nicer test list. See [Custom test status colors](#custom-test-status-colors).
 
 
 ## Adding a test suite
 
-In TestExplorer, a "test suite" is simply a collection of tests that are implemented with the same test framework. The tests from a given suite may come from multiple files, multiple classes, even multiple executables; this does not matter and is left up to you, as long as all tests within the suite are using the same framework. In general I would expect most people would only need to configure a single TestExplorer test suite.
+In TestManager, a "test suite" is simply a collection of tests that are implemented with the same test framework. The tests from a given suite may come from multiple files, multiple classes, even multiple executables; this does not matter and is left up to you, as long as all tests within the suite are using the same framework. In general I would expect most people would only need to configure a single TestManager test suite.
 
-Once the test suite is configured, you are unlikely to need to modify it again, even if you add more tests, test files, etc. TestExplorer implements dynamic test discovery, so you do not have to list all tests by hand; you only need to tell the plugin where to find your tests.
+Once the test suite is configured, you are unlikely to need to modify it again, even if you add more tests, test files, etc. TestManager implements dynamic test discovery, so you do not have to list all tests by hand; you only need to tell the plugin where to find your tests.
 
 Test suites are added to your Sublime Text project settings in the following way:
 
@@ -35,7 +35,7 @@ Test suites are added to your Sublime Text project settings in the following way
 {
     "settings":
     {
-        "TestExplorer":
+        "TestManager":
         {
             "test_suites": [
                 {
@@ -85,7 +85,7 @@ The following sections describe fields that are only available in specific test 
 
 The following field can also be set:
 
- - `"executable_pattern"`: Either a glob pattern (with `*` wildcard) or a single path defining which test executable(s) to include in the test discovery and test execution. If this is supplied as an absolute path, it is used as is. If this is supplied as a relative path, it is interpreted as relative to the root of the project. The default is to include all files at the root of the project, which is most likely not what you want. Unfortunately it is impossible for TestExplorer to guess where your test executables will end up, so this will generally need to be set.
+ - `"executable_pattern"`: Either a glob pattern (with `*` wildcard) or a single path defining which test executable(s) to include in the test discovery and test execution. If this is supplied as an absolute path, it is used as is. If this is supplied as a relative path, it is interpreted as relative to the root of the project. The default is to include all files at the root of the project, which is most likely not what you want. Unfortunately it is impossible for TestManager to guess where your test executables will end up, so this will generally need to be set.
 
 
 ### Pytest
@@ -104,7 +104,7 @@ The following field can also be set:
 
 ## Internal data model
 
-The content of this section is not necessary for using TestExplorer. It is for developers only, or those who wish to implement their own custom framework.
+The content of this section is not necessary for using TestManager. It is for developers only, or those who wish to implement their own custom framework.
 
 The data model is a tree-like structure, where each element is a `TestItem`. All tests are leaves of this tree (no children). Nodes of the tree correspond to groups of any kind: it could be a test class (fixture), a file, a folder, ... A node contains one or more child; each child can itself be another sub-group, or it can be a test. The data model makes no assumption about the meaning of this grouping structure, so each framework can only specify the grouping level it needs. For example, if the test framework has no concept of "test class", then that grouping level does not need to exist in the tree.
 
@@ -130,7 +130,7 @@ NB: The above describes the data model in Python. When the test data is stored o
 To add a new test framework, you must create a new class that implements the `TestFramework` interface (see abstract base class definition in `test_framework.py`).
 
 ```python
-from TestExplorer.test_framework import TestFramework
+from TestManager.test_framework import TestFramework
 
 class YourTestFramework(TestFramework):
     def __init__(self, suite: TestSuite):
@@ -185,7 +185,7 @@ You can then either publish this framework as a separate Sublime Text plugin, or
 
 ## Custom test status colors
 
-By default, the test list does not use different colors to display passed/failed/skipped tests, it only shows a different symbol. Using different colors can make it easier to read, and is recommended. Unfortunately this is difficult to do out-of-the-box for TestExplorer; the right colors to use will depend on your favorite color scheme (dark vs light, etc.).
+By default, the test list does not use different colors to display passed/failed/skipped tests, it only shows a different symbol. Using different colors can make it easier to read, and is recommended. Unfortunately this is difficult to do out-of-the-box for TestManager; the right colors to use will depend on your favorite color scheme (dark vs light, etc.).
 
 To set up custom colors, go to "Preferences > Customize Color Scheme", and enter the following. Feel free to then edit the chosen colors to your liking.
 
@@ -200,68 +200,68 @@ To set up custom colors, go to "Preferences > Customize Color Scheme", and enter
     "rules":
     [
         {
-            "name": "TestExplorer failed (icon)",
-            "scope": "string.other.test-explorer.status-marker.failed",
+            "name": "TestManager failed (icon)",
+            "scope": "string.other.test-list.status-marker.failed",
             "foreground": "#e9677e"
         },
         {
-            "name": "TestExplorer failed (stats)",
-            "scope": "comment.other.test-explorer.tests.failed.some",
+            "name": "TestManager failed (stats)",
+            "scope": "comment.other.test-list.tests.failed.some",
             "foreground": "#e9677e"
         },
         {
-            "name": "TestExplorer crashed (icon)",
-            "scope": "string.other.test-explorer.status-marker.crashed",
+            "name": "TestManager crashed (icon)",
+            "scope": "string.other.test-list.status-marker.crashed",
             "foreground": "#e9677e"
         },
         {
-            "name": "TestExplorer crashed (stats)",
-            "scope": "comment.other.test-explorer.tests.crashed.some",
+            "name": "TestManager crashed (stats)",
+            "scope": "comment.other.test-list.tests.crashed.some",
             "foreground": "#e9677e"
         },
         {
-            "name": "TestExplorer stopped (icon)",
-            "scope": "string.other.test-explorer.status-marker.stopped",
+            "name": "TestManager stopped (icon)",
+            "scope": "string.other.test-list.status-marker.stopped",
             "foreground": "#97d1ed"
         },
         {
-            "name": "TestExplorer stopped (stats)",
-            "scope": "comment.other.test-explorer.tests.stopped.some",
+            "name": "TestManager stopped (stats)",
+            "scope": "comment.other.test-list.tests.stopped.some",
             "foreground": "#97d1ed"
         },
         {
-            "name": "TestExplorer passed (icon)",
-            "scope": "string.other.test-explorer.status-marker.passed",
+            "name": "TestManager passed (icon)",
+            "scope": "string.other.test-list.status-marker.passed",
             "foreground": "#7efbac"
         },
         {
-            "name": "TestExplorer passed (stats)",
-            "scope": "comment.other.test-explorer.tests.passed.some",
+            "name": "TestManager passed (stats)",
+            "scope": "comment.other.test-list.tests.passed.some",
             "foreground": "#7efbac"
         },
         {
-            "name": "TestExplorer skipped (icon)",
-            "scope": "string.other.test-explorer.status-marker.skipped",
+            "name": "TestManager skipped (icon)",
+            "scope": "string.other.test-list.status-marker.skipped",
             "foreground": "#f0ce7b"
         },
         {
-            "name": "TestExplorer skipped (stats)",
-            "scope": "comment.other.test-explorer.tests.skipped.some",
+            "name": "TestManager skipped (stats)",
+            "scope": "comment.other.test-list.tests.skipped.some",
             "foreground": "#f0ce7b"
         },
         {
-            "name": "TestExplorer not-run (icon)",
-            "scope": "string.other.test-explorer.status-marker.not-run",
+            "name": "TestManager not-run (icon)",
+            "scope": "string.other.test-list.status-marker.not-run",
             "foreground": "#97d1ed"
         },
         {
-            "name": "TestExplorer not-run (stats)",
-            "scope": "comment.other.test-explorer.tests.not-run.some",
+            "name": "TestManager not-run (stats)",
+            "scope": "comment.other.test-list.tests.not-run.some",
             "foreground": "#97d1ed"
         },
         {
-            "name": "TestExplorer running (icon)",
-            "scope": "string.other.test-explorer.status-marker.running",
+            "name": "TestManager running (icon)",
+            "scope": "string.other.test-list.status-marker.running",
             "foreground": "#c582c3"
         },
     ]

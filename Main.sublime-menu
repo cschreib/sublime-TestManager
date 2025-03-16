@@ -12,29 +12,29 @@
                 "children":
                 [
                     {
-                        "caption": "TestExplorer",
+                        "caption": "TestManager",
                         "children":
                         [
                             {
                                 "command": "open_file",
-                                "args": {"file": "${packages}/TestExplorer/TestExplorer.sublime-settings"},
+                                "args": {"file": "${packages}/TestManager/TestManager.sublime-settings"},
                                 "caption": "Settings – Default"
                             },
                             {
                                 "command": "open_file",
-                                "args": {"file": "${packages}/User/TestExplorer.sublime-settings"},
+                                "args": {"file": "${packages}/User/TestManager.sublime-settings"},
                                 "caption": "Settings – User"
                             },
                             { "caption": "-" },
                             {
                                 "command": "open_file",
-                                "args": {"file": "${packages}/TestExplorer/Default.sublime-keymap"},
+                                "args": {"file": "${packages}/TestManager/Default.sublime-keymap"},
                                 "caption": "Key Bindings – Default"
                             },
                             {
                                 "command": "open_file",
                                 "args": {
-                                    "file": "${packages}/TestExplorer/Default (Windows).sublime-keymap",
+                                    "file": "${packages}/TestManager/Default (Windows).sublime-keymap",
                                     "platform": "Windows"
                                 },
                                 "caption": "Key Bindings – Default (Windows)"
@@ -42,7 +42,7 @@
                             {
                                 "command": "open_file",
                                 "args": {
-                                    "file": "${packages}/TestExplorer/Default (OSX).sublime-keymap",
+                                    "file": "${packages}/TestManager/Default (OSX).sublime-keymap",
                                     "platform": "OSX"
                                 },
                                 "caption": "Key Bindings – Default (OSX)"
@@ -50,7 +50,7 @@
                             {
                                 "command": "open_file",
                                 "args": {
-                                    "file": "${packages}/TestExplorer/Default (Linux).sublime-keymap",
+                                    "file": "${packages}/TestManager/Default (Linux).sublime-keymap",
                                     "platform": "Linux"
                                 },
                                 "caption": "Key Bindings – Default (Linux)"

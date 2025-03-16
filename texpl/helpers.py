@@ -6,7 +6,7 @@ from .test_data import TestData
 from .util import SettingsHelper
 from typing import Optional
 
-logger = logging.getLogger('TestExplorer.helpers')
+logger = logging.getLogger('TestManager.helpers')
 
 DEFAULT_TEST_DATA_LOCATION = '.sublime-tests'
 
@@ -70,7 +70,7 @@ class TestDataHelper(SettingsHelper):
         if view is None:
             return
 
-        # Setting created programmatically when creating a test explorer view.
+        # Setting created programmatically when creating a test list view.
         # This is already a full path.
         location = view.settings().get('test_data_full_path')
         if location:

@@ -33,7 +33,7 @@ class RunStatus(enum.Enum):
 
 DB_FILE = 'tests.sqlite3'
 
-logger = logging.getLogger('TestExplorer.test_data')
+logger = logging.getLogger('TestManager.test_data')
 
 
 def date_from_db(data: Optional[str]) -> Optional[datetime]:

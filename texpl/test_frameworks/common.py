@@ -99,7 +99,7 @@ class XmlParser(ABC):
         pass
 
 
-xml_parser_logger = logging.getLogger('TestExplorerParser.xml-base')
+xml_parser_logger = logging.getLogger('TestManagerParser.xml-base')
 
 
 class XmlStreamHandler(xml.sax.handler.ContentHandler):

@@ -12,7 +12,7 @@ from ..test_data import (DiscoveredTest, DiscoveryError, TestLocation, TestData,
 from .. import process
 from . import common
 
-logger = logging.getLogger('TestExplorer.doctest-cpp')
+logger = logging.getLogger('TestManager.doctest-cpp')
 
 # The content inside these elements is controlled by doctest, don't assume it is standard output.
 captured_elements = ['Info', 'Original', 'Expanded', 'Exception']

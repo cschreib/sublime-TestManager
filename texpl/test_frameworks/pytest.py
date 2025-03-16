@@ -24,8 +24,8 @@ PYTEST_STATUS_MAP = {
     'skipped': TestStatus.SKIPPED
 }
 
-logger = logging.getLogger('TestExplorer.pytest')
-parser_logger = logging.getLogger('TestExplorerParser.pytest')
+logger = logging.getLogger('TestManager.pytest')
+parser_logger = logging.getLogger('TestManagerParser.pytest')
 
 
 class OutputParser:

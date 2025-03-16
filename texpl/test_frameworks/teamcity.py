@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from ..test_data import (TestData, StartedTest, FinishedTest, TestStatus, TestOutput)
 
-parser_logger = logging.getLogger('TestExplorerParser.teamcity')
+parser_logger = logging.getLogger('TestManagerParser.teamcity')
 
 
 class OutputParser:

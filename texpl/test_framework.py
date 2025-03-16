@@ -8,7 +8,7 @@ from .test_data import DiscoveredTest
 from .test_suite import TestSuite
 from .errors import FrameworkError
 
-logger = logging.getLogger('TestExplorer.frameworks')
+logger = logging.getLogger('TestManager.frameworks')
 
 
 class TestFrameworkFactory:
