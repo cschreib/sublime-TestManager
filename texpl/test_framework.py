@@ -6,6 +6,7 @@ import logging
 
 from .test_data import DiscoveredTest
 from .test_suite import TestSuite
+from .errors import FrameworkError
 
 logger = logging.getLogger('TestExplorer.frameworks')
 
@@ -14,11 +15,6 @@ class TestFrameworkFactory:
     def __init__(self, create: Callable, default_settings: Dict):
         self.create = create
         self.default_settings = default_settings
-
-
-class FrameworkError(BaseException):
-    def __init__(self, message: str):
-        self.message = message
 
 
 registry: Dict[str, TestFrameworkFactory] = {}

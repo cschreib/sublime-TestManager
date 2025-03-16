@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from .test_framework import FrameworkError
+from .errors import FrameworkError
 from .test_data import TestData
 
 

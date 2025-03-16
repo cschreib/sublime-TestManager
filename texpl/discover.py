@@ -11,7 +11,7 @@ from sublime_plugin import WindowCommand
 from .helpers import TestDataHelper
 from .test_suite import TestSuite
 from .test_data import DiscoveryError, TestData, clear_test_data
-from .test_framework import FrameworkError
+from .errors import FrameworkError
 from .util import SettingsHelper
 
 logger = logging.getLogger('TestExplorer.discovery')
