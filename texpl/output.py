@@ -77,6 +77,9 @@ class TestManagerOpenRunOutput(WindowCommand, TestDataHelper):
             view.settings().set('test_view', 'output')
             view.settings().set('test_output', test)
             view.settings().set('test_data_full_path', data.location)
+            view.settings().set('translate_tabs_to_spaces', False)
+            view.settings().set('word_wrap', True)
+            view.settings().set('detect_indentation', False)
 
             views = [view]
 
