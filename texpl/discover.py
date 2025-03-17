@@ -28,6 +28,8 @@ NO_TEST_SUITE_CONFIGURED = ("No test suite is currently configured.")
 NO_TESTS_DISCOVERED = ("No test found during discovery. Check the configuration of "
                        "the test suites.")
 
+ALREADY_DISCOVERING = ("Test discovery is already running, please wait.")
+
 MAX_ERROR_LENGTH = 256
 
 
@@ -72,6 +74,9 @@ class TestManagerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
         if data.is_running_tests():
             sublime.error_message(CANNOT_DISCOVER_WHILE_RUNNING_DIALOG)
             return
+        if data.is_discovering_tests():
+            sublime.error_message(ALREADY_DISCOVERING)
+            return
 
         suites_json = self.get_setting('test_suites')
         if not suites_json:
@@ -98,6 +103,8 @@ class TestManagerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
 
     def discover_tests(self, data: TestData, suites: List[TestSuite]):
         start = datetime.now()
+        data.notify_discovery_started()
+        sublime.run_command('test_manager_refresh_all', {'data_location': data.location})
 
         # TODO: turn this into parallel jobs
         try:
@@ -119,7 +126,9 @@ class TestManagerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
                 self.display_in_panel(message)
             return
 
-        logger.info(f'Discovered {len(discovered_tests)} tests')
+        end = datetime.now()
+
+        logger.info(f'Discovered {len(discovered_tests)} tests in {end - start} seconds')
 
         disc_id = 0
         for t in discovered_tests:

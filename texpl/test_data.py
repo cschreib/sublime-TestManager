@@ -461,6 +461,7 @@ class TestMetaData:
         self.location = location
         self.last_discovery: Optional[datetime] = None
         self.running = False
+        self.discovering = False
         pass
 
     @staticmethod
@@ -468,6 +469,7 @@ class TestMetaData:
         data = TestMetaData(location)
         data.last_discovery = date_from_db(row['last_discovery'])
         data.running = row['running']
+        data.discovering = row['discovering']
         return data
 
     @staticmethod
@@ -491,16 +493,25 @@ class TestMetaData:
                 if not 'meta' in tables:
                     con.execute("""CREATE TABLE meta(
                         last_discovery TIMESTAMP,
-                        running BOOL
+                        running BOOL,
+                        discovering BOOL
                         )""")
-                    con.execute('INSERT INTO meta VALUES (?,?)',
-                                (self.last_discovery, self.running))
+                    con.execute('INSERT INTO meta VALUES (?,?,?)', (
+                        self.last_discovery,
+                        self.running,
+                        self.discovering
+                    ))
                 else:
                     con.execute("""UPDATE meta SET
                         last_discovery=?,
-                        running=?
+                        running=?,
+                        discovering=?
                         """,
-                                (self.last_discovery, self.running))
+                        (
+                            self.last_discovery,
+                            self.running,
+                            self.discovering
+                        ))
 
 
 def clear_test_data(location):
@@ -539,6 +550,12 @@ class TestData:
 
             self.tests.update_compound_statuses()
             self.commit(meta=self.meta, tests=self.tests)
+
+        if self.meta.discovering:
+            # Plugin was reloaded or SublimeText killed while discovering tests, so we didn't
+            # register a "discovery finished" event. Forget about it.
+            self.meta.discovering = False
+            self.commit(meta=self.meta)
 
     def is_initialised(self):
         return TestMetaData.is_initialised(self.location) and TestList.is_initialised(self.location)
@@ -610,6 +627,9 @@ class TestData:
     def is_running_tests(self):
         return self.get_test_metadata().running
 
+    def is_discovering_tests(self):
+        return self.get_test_metadata().discovering
+
     def get_global_test_stats(self, cached=True):
         with self.mutex:
             if not cached or self.stats is None:
@@ -617,10 +637,19 @@ class TestData:
 
             return copy.deepcopy(self.stats)
 
+    def notify_discovery_started(self):
+        logger.info('discovery started')
+
+        with self.mutex:
+            self.meta.discovering = True
+
+        self.commit(meta=self.meta)
+
     def notify_discovered_tests(self, discovered_tests: List[DiscoveredTest], discovery_time: datetime):
         logger.info('discovery complete')
 
         with self.mutex:
+            self.meta.discovering = False
             self.meta.last_discovery = discovery_time
 
             old_tests = self.tests

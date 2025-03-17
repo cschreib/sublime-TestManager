@@ -224,7 +224,10 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         return lines
 
     def build_header(self, data: TestData) -> List[str]:
-        last_discovery = self.date_to_string(data.get_last_discovery(), with_full=True)
+        if data.is_discovering_tests():
+            last_discovery = 'in progress...'
+        else:
+            last_discovery = self.date_to_string(data.get_last_discovery(), with_full=True)
         stats = data.get_global_test_stats()
         last_run = self.date_to_string(stats["last_run"], with_full=True)
         visibility = self.view.settings().get('visible_tests')
