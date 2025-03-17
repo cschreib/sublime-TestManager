@@ -35,7 +35,7 @@
      * Refresh rate of the test list view, in seconds. Reduce this for more real-time display
      * of test results. Increase this if SublimeText becomes too sluggish during test runs.
      */
-    "view_refresh_interval": 0.1,
+    "list_refresh_interval": 0.1,
 
     /*
      * Symbols shown in the test list for a given test status. These can be any single character.

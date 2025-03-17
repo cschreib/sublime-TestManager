@@ -48,7 +48,7 @@ class TestRunHelper(SettingsHelper):
     def run_tests(self, data: TestData, test_list: TestList, suites: List[TestSuite], tests: List[str]):
         try:
             settings = self.get_settings()
-            self.refresh_interval = settings.get('view_refresh_interval', 0.1) * 1000
+            self.refresh_interval = settings.get('list_refresh_interval', 0.1) * 1000
             test_ids = {}
             test_paths = []
 
