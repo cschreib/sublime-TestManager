@@ -112,6 +112,10 @@ class TestManagerOutputRefresh(TextCommand, TestDataHelper):
         old_content = self.view.substr(sublime.Region(0, self.view.size()))
         was_at_end = len(old_content) in self.view.visible_region()
 
+        if output == old_content:
+            # Do nothing
+            return
+
         self.view.set_read_only(False)
 
         replaced = False
