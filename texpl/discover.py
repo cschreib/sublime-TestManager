@@ -25,6 +25,9 @@ CANNOT_RESET_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait o
 
 NO_TEST_SUITE_CONFIGURED = ("No test suite is currently configured.")
 
+NO_TESTS_DISCOVERED = ("No test found during discovery. Check the configuration of "
+                       "the test suites.")
+
 MAX_ERROR_LENGTH = 256
 
 
@@ -125,3 +128,6 @@ class TestManagerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
 
         data.notify_discovered_tests(discovered_tests, discovery_time=start)
         sublime.run_command('test_manager_refresh_all', {'data_location': data.location})
+
+        if len(discovered_tests) == 0:
+            sublime.error_message(NO_TESTS_DISCOVERED)
