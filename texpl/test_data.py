@@ -538,7 +538,11 @@ class TestData:
             self.init()
             return
 
-        self.load()
+        try:
+            self.load()
+        except Exception as e:
+            logger.error('could not load existing DB, creating a new one')
+            self.init()
 
         if self.meta.running:
             # Plugin was reloaded or SublimeText killed while running tests, so we didn't
