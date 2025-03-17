@@ -128,7 +128,7 @@ class TestManagerOutputRefresh(TextCommand, TestDataHelper):
 
         self.view.set_read_only(True)
 
-        autoscroll = self.get_setting('list_output_auto_scroll', True) is True
+        autoscroll = self.get_setting('output_auto_scroll', True) is True
         if autoscroll and (replaced or was_at_end):
             self.view.show(self.view.size())
 
