@@ -28,10 +28,10 @@ class TestRunHelper(SettingsHelper):
     def get_test_suites(self, data: TestData, project: str):
         suites_json = self.get_setting('test_suites')
         if not suites_json:
-            # TODO: change this into a "Do you want to configure a test suite now?"
-            # Then propose a dropdown list of all available frameworks, and init to default.
-            # Also add a command to init a new suite to default.
-            sublime.error_message(NO_TEST_SUITE_CONFIGURED)
+            if not sublime.ok_cancel_dialog(NO_TEST_SUITE_CONFIGURED, 'Add suite'):
+                return
+
+            sublime.run_command('test_manager_add_test_suite')
             return None
 
         root_dir = os.path.dirname(project)

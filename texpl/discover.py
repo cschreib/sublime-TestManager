@@ -23,7 +23,8 @@ CANNOT_RESET_WHILE_RUNNING_DIALOG = ("Tests are currently running; please wait o
                                      "stop the tests before reseting the test data.")
 
 
-NO_TEST_SUITE_CONFIGURED = ("No test suite is currently configured.")
+NO_TEST_SUITE_CONFIGURED = ("No test suite is currently configured. Would you like to "
+                            "configure a test suite to locate your existing tests?")
 
 NO_TESTS_DISCOVERED = ("No test found during discovery. Check the configuration of "
                        "the test suites.")
@@ -80,10 +81,10 @@ class TestManagerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
 
         suites_json = self.get_setting('test_suites')
         if not suites_json:
-            # TODO: change this into a "Do you want to configure a test suite now?"
-            # Then propose a dropdown list of all available frameworks, and init to default.
-            # Also add a command to init a new suite to default.
-            sublime.error_message(NO_TEST_SUITE_CONFIGURED)
+            if not sublime.ok_cancel_dialog(NO_TEST_SUITE_CONFIGURED, 'Add suite'):
+                return
+
+            self.window.run_command('test_manager_add_test_suite')
             return
 
         root_dir = os.path.dirname(project)
