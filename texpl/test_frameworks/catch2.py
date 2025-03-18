@@ -317,4 +317,4 @@ class Catch2(TestFramework):
             run_tests(executable, test_ids)
 
 
-register_framework('catch2', Catch2.from_json, Catch2.get_default_settings())
+register_framework('catch2', 'Catch2 (C++)', Catch2.from_json, Catch2.get_default_settings())

@@ -201,4 +201,4 @@ class Cargo(TestFramework):
         parser.close()
 
 
-register_framework('cargo', Cargo.from_json, Cargo.get_default_settings())
+register_framework('cargo', 'cargo test (Rust)', Cargo.from_json, Cargo.get_default_settings())

@@ -291,4 +291,4 @@ class DoctestCpp(TestFramework):
             run_tests(executable, test_ids)
 
 
-register_framework('doctest-cpp', DoctestCpp.from_json, DoctestCpp.get_default_settings())
+register_framework('doctest-cpp', 'Doctest (C++)', DoctestCpp.from_json, DoctestCpp.get_default_settings())

@@ -212,4 +212,4 @@ class GoogleTest(TestFramework):
             run_tests(executable, test_ids)
 
 
-register_framework('gtest', GoogleTest.from_json, GoogleTest.get_default_settings())
+register_framework('gtest', 'GoogleTest (C++)', GoogleTest.from_json, GoogleTest.get_default_settings())

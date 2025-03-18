@@ -12,7 +12,9 @@ logger = logging.getLogger('TestManager.frameworks')
 
 
 class TestFrameworkFactory:
-    def __init__(self, create: Callable, default_settings: Dict):
+    def __init__(self, name: str, description: str, create: Callable, default_settings: Dict):
+        self.name = name
+        self.description = description
         self.create = create
         self.default_settings = default_settings
 
@@ -20,9 +22,9 @@ class TestFrameworkFactory:
 registry: Dict[str, TestFrameworkFactory] = {}
 
 
-def register_framework(name: str, factory_function: Callable, default_settings: Dict):
+def register_framework(name: str, description: str, factory_function: Callable, default_settings: Dict):
     global registry
-    registry[name] = TestFrameworkFactory(factory_function, default_settings)
+    registry[name] = TestFrameworkFactory(name, description, factory_function, default_settings)
 
 
 def get_framework_factory(name: str):
@@ -53,7 +55,7 @@ def get_framework_default_settings(name: str):
 
 
 def get_available_frameworks():
-    return list(registry.keys())
+    return list({'name': f.name, 'description': f.description} for f in registry.values())
 
 
 class TestFramework(ABC):

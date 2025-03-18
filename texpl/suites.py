@@ -1,6 +1,6 @@
 # coding: utf-8
 import logging
-from typing import List
+from typing import List, Dict, Any
 from functools import partial
 
 import sublime
@@ -35,11 +35,11 @@ class TestManagerAddTestSuiteCommand(WindowCommand, TestDataHelper, SettingsHelp
         self.window.set_project_data(data)
 
 
-    def select_suite_id(self, frameworks: List[str], framework_id: int):
+    def select_suite_id(self, frameworks: List[Dict[str,Any]], framework_id: int):
         if framework_id < 0:
             return
 
-        framework = frameworks[framework_id]
+        framework = frameworks[framework_id]['name']
         settings = get_framework_default_settings(framework)
         settings['framework'] = framework
 
@@ -67,8 +67,10 @@ class TestManagerAddTestSuiteCommand(WindowCommand, TestDataHelper, SettingsHelp
             return
 
         frameworks = get_available_frameworks()
+        choices = [[f['name'], f['description']] for f in frameworks]
+
         self.window.show_quick_panel(
-            frameworks,
+            choices,
             partial(self.select_suite_id, frameworks),
             flags=sublime.MONOSPACE_FONT,
             placeholder='Test framework used by the test suite')

@@ -232,4 +232,4 @@ class PyTest(TestFramework):
         parser.close()
 
 
-register_framework('pytest', PyTest.from_json, PyTest.get_default_settings())
+register_framework('pytest', 'pytest & unittest (Python)', PyTest.from_json, PyTest.get_default_settings())
