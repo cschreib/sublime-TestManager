@@ -125,6 +125,7 @@ class TestManagerDiscoverCommand(WindowCommand, TestDataHelper, SettingsHelper):
             else:
                 sublime.error_message('Error running test discovery; see panel for more information.')
                 self.display_in_panel(message)
+            data.notify_discovery_ended()
             return
 
         end = datetime.now()

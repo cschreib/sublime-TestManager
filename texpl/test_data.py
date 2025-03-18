@@ -649,6 +649,14 @@ class TestData:
 
         self.commit(meta=self.meta)
 
+    def notify_discovery_ended(self):
+        logger.info('discovery ended')
+
+        with self.mutex:
+            self.meta.discovering = False
+
+        self.commit(meta=self.meta)
+
     def notify_discovered_tests(self, discovered_tests: List[DiscoveredTest], discovery_time: datetime):
         logger.info('discovery complete')
 
