@@ -17,7 +17,7 @@ class OutputParser:
         self.current_status = TestStatus.PASSED
 
     def parse_test_id(self, line: str):
-        return re.search("name='(.+)'", line).group(1)
+        return re.search("name='([^']+)'", line).group(1)
 
     def finish_current_test(self):
         if self.current_test is not None:
