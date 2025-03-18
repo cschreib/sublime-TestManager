@@ -1,4 +1,21 @@
 [
+    {
+        "caption": "Preferences: TestManager Settings",
+        "command": "edit_settings",
+        "args": {
+            "base_file": "${packages}/TestManager/TestManager.sublime-settings",
+            "default": "{\n\t$0\n}\n"
+        }
+    },
+    {
+        "caption": "Preferences: TestManager Key Bindings",
+        "command": "edit_settings",
+        "args": {
+            "base_file": "${packages}/TestManager/Default.sublime-keymap",
+            "user_file": "${packages}/User/Default ($platform).sublime-keymap",
+            "default": "[\n\t$0\n]\n",
+        }
+    },
     { "caption": "TestManager: List Tests", "command": "test_manager_list"},
     { "caption": "TestManager: Reset Test Data", "command": "test_manager_reset"},
     { "caption": "TestManager: Discover Tests", "command": "test_manager_discover"},

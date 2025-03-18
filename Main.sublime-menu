@@ -19,7 +19,8 @@
                                 "caption": "Settings",
                                 "command": "edit_settings",
                                 "args": {
-                                    "base_file": "${packages}/TestManager/TestManager.sublime-settings"
+                                    "base_file": "${packages}/TestManager/TestManager.sublime-settings",
+                                    "default": "{\n\t$0\n}\n"
                                 },
                             },
                             {
