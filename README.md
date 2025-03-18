@@ -9,6 +9,7 @@ This extension for Sublime Text 4 allows listing, running, and inspecting the re
  - C++: [Catch2](https://github.com/catchorg/Catch2/), [snitch](https://github.com/snitch-org/snitch) (using Catch2), [doctest](https://github.com/doctest/doctest), [GoogleTest](https://github.com/google/googletest)
  - Python: [pytest](https://docs.pytest.org/en/stable/), unittest (using pytest)
  - Rust: cargo test (nightly only)
+ - PHP: [PHPUnit](https://phpunit.de/index.html) (experimental)
 
 The core architecture is language agnostic, and can work in principle with any language or framework not listed above. However, each framework generally has its own command-line interface and reporting format, which requires bespoke logic to handle. If your favorite test framework is not listed above, you can write your own runner/parser and [register it with TestManager](#register-custom-framework).
 
@@ -100,6 +101,13 @@ The following field can also be set:
 The following field can also be set:
 
  - `"cargo"`: The name or path to the cargo executable to use when running the tests. If this is supplied as an absolute path, or just as an executable name with no path, it is used as is. If this is supplied as a relative path, it is interpreted as relative to the root of the project. If this is supplied as a list, then it is assumed to be a list of command-line entries and will be used as is.
+
+
+### PHPUnit
+
+The following field can also be set:
+
+ - `"phpunit"`: The name or path to the phpunit executable to use when running the tests. If this is supplied as an absolute path, or just as an executable name with no path, it is used as is. If this is supplied as a relative path, it is interpreted as relative to the root of the project. If this is supplied as a list, then it is assumed to be a list of command-line entries and will be used as is.
 
 
 ## Internal data model
