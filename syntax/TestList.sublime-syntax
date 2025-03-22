@@ -20,9 +20,9 @@ contexts:
     - match: '^#'
       push:
         - meta_scope: comment.test-list.help
-        - match: ^(?!\n)\s*
+        - match: (?=[^\s]+ =)
           push:
-            - match: '(?=[\w+]+ =)'
+            - match: (?=[\w+]+ =)
               set: [help-key]
             - match: (?=\[)
               set: [status-marker]
