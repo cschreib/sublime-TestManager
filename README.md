@@ -93,7 +93,10 @@ The following field can also be set:
 
 The following field can also be set:
 
- - `"python"`: The name or path to the Python executable to use when running the tests. If this is supplied as an absolute path, or just as an executable name with no path, it is used as is. If this is supplied as a relative path, it is interpreted as relative to the root of the project.
+ - `"python"`: The name or path to the Python executable to use when running the tests. If this is supplied as an absolute path, or just as an executable name with no path, it is used as is. If this is supplied as a relative path, it is interpreted as relative to the root of the project. If this is supplied as a list, then it is assumed to be a list of command-line entries and will be used as is; this can be used for example to use a conda environment (replacing `my-environment' with the name of your environment):
+    ```
+    "python": ["conda", "run", "--no-capture-output", "-n", "my-environment", "python"]
+    ```
 
 
 ### Cargo

@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from ..test_framework import (TestFramework, register_framework)
 from ..test_suite import TestSuite
@@ -94,7 +94,7 @@ def get_os_pytest_plugins():
 class PyTest(TestFramework):
     def __init__(self,
                  suite: TestSuite,
-                 python: str = 'python',
+                 python: Union[str, List[str]] = 'python',
                  env: Dict[str, str] = {},
                  cwd: Optional[str] = None,
                  args: List[str] = [],
@@ -134,13 +134,17 @@ class PyTest(TestFramework):
                       run_args=settings['run_args'],
                       parser=settings['parser'])
 
-    def get_pytest(self):
-        if not os.path.isabs(self.python) and len(os.path.dirname(self.python)) > 0:
-            python = os.path.join(self.project_root_dir, self.python)
-        else:
-            python = self.python
+    def get_python(self):
+        if isinstance(self.python, list):
+            return self.python
 
-        return [python, '-m', 'pytest']
+        if not os.path.isabs(self.python) and len(os.path.dirname(self.python)) > 0:
+            return [os.path.join(self.project_root_dir, self.python)]
+
+        return [self.python]
+
+    def get_pytest(self):
+        return self.get_python() + ['-m', 'pytest']
 
     def get_env(self):
         # Default discovery output of pytest does not contain file & line numbers.
