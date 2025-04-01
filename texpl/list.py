@@ -110,7 +110,7 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         structure = {}
 
         global_stats = data.get_global_test_stats()
-        stats_width = int(math.floor(math.log10(global_stats['total'])))
+        stats_width = int(math.floor(math.log10(max(1, global_stats['total'])))) + 1
         structure['stats_width'] = stats_width
 
         def add_line(line: str):
