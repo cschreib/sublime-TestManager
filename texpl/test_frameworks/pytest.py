@@ -153,7 +153,10 @@ class PyTest(TestFramework):
         env['PYTEST_PLUGINS'] = ','.join(get_os_pytest_plugins() + [PYTEST_PLUGIN])
         here_path = os.path.dirname(os.path.abspath(__file__))
         plugin_path = os.path.join(here_path, PYTEST_PLUGIN_PATH)
-        env['PYTHONPATH'] = os.pathsep.join(get_os_python_path() + [plugin_path])
+        python_path = get_os_python_path()
+        if 'PYTHONPATH' in env:
+            python_path += env['PYTHONPATH'].split(os.pathsep)
+        env['PYTHONPATH'] = os.pathsep.join(python_path + [plugin_path])
         return env
 
     def discover(self) -> List[DiscoveredTest]:
