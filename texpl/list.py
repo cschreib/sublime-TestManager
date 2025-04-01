@@ -1,6 +1,7 @@
 # coding: utf-8
 import os
 import logging
+import math
 from datetime import datetime
 from functools import partial
 from typing import Callable, Optional, List, Dict, Tuple
@@ -108,6 +109,10 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         line_count = 0
         structure = {}
 
+        global_stats = data.get_global_test_stats()
+        stats_width = int(math.floor(math.log10(global_stats['total'])))
+        structure['stats_width'] = stats_width
+
         def add_line(line: str):
             nonlocal status
             nonlocal line_count
@@ -117,7 +122,7 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
             line_count += 1
 
         # Build the header.
-        for line in self.build_header(data):
+        for line in self.build_header(data, global_stats, stats_width):
             add_line(line)
 
         add_line('')
@@ -154,7 +159,8 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
                                                      visibility=visibility,
                                                      max_depth=max_depth,
                                                      column_width_percentile=column_width_percentile,
-                                                     column_width_factor=column_width_factor)
+                                                     column_width_factor=column_width_factor,
+                                                     stats_width=stats_width)
         structure['max_length'] = max_length
 
         if tests_list.is_empty():
@@ -198,13 +204,15 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         self.status_symbol = DEFAULT_STATUS_SYMBOL
         self.status_symbol.update(settings.get('status_symbol', {}))
 
-        # Already rebuild the header; it's cheap and changes all the time anyway.
-        line_count = 0
-        for line in self.build_header(data):
-            add_line(line_count, line)
-            line_count += 1
-
         with data.mutex:
+            # Rebuild the full header; it's cheap and changes all the time anyway.
+            global_stats = data.get_global_test_stats()
+            stats_width = structure['stats_width']
+            line_count = 0
+            for line in self.build_header(data, global_stats, stats_width):
+                add_line(line_count, line)
+                line_count += 1
+
             # Now rebuild the lines for the selected tests
             test_lines = structure['test_lines']
             max_length = structure['max_length']
@@ -219,16 +227,15 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
                     continue
 
                 content = self.build_item(item, self.item_depth(path))
-                add_line(line, self.build_info(item, content, max_length))
+                add_line(line, self.build_info(item, content, max_length, stats_width))
 
         return lines
 
-    def build_header(self, data: TestData) -> List[str]:
+    def build_header(self, data: TestData, stats, stats_width: int) -> List[str]:
         if data.is_discovering_tests():
             last_discovery = 'in progress...'
         else:
             last_discovery = self.date_to_string(data.get_last_discovery(), with_full=True)
-        stats = data.get_global_test_stats()
         last_run = self.date_to_string(stats["last_run"], with_full=True)
         visibility = self.view.settings().get('visible_tests')
         root_path = self.view.settings().get('focus_test_path')
@@ -240,7 +247,7 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         lines = []
         lines.append(f'Last discovery: {last_discovery}')
         lines.append(f'Last run:       {last_run}')
-        lines.append(f'Tests status:   {self.stats_to_string(stats)}')
+        lines.append(f'Tests status:   {self.stats_to_string(stats, stats_width)}')
         lines.append(f'Showing:        {self.visible_to_string(visibility)}')
         lines.append(f'Focus:          {root_path}')
 
@@ -312,26 +319,27 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         else:
             return readable_date_delta(date)
 
-    def stats_to_string(self, stats) -> str:
+    def stats_to_string(self, stats, stats_width: int) -> str:
         stats['failed'] += stats['crashed']
         stats['not_run'] += stats['stopped']
         displays = ['failed', 'skipped', 'passed', 'not_run', 'total']
-        return ' | '.join(f'{STATUS_NAME[k]}:{stats[k]}' for k in displays)
+        return ' | '.join(f'{STATUS_NAME[k]}:{stats[k]:<{stats_width}}' for k in displays)
 
     def visible_to_string(self, visibility) -> str:
         displays = ['failed', 'skipped', 'passed', 'not_run']
         return ' | '.join(f'[X] {STATUS_NAME[k]}' if visibility[k] else f'[ ] {STATUS_NAME[k]}' for k in displays)
 
-    def build_info(self, item: TestItem, line: str, max_length: int) -> str:
+    def build_info(self, item: TestItem, line: str, max_length: int, stats_width: int) -> str:
         padding = ' ' * (max_length - len(line))
         if item.children is not None:
-            return f'{line}{padding} ({self.stats_to_string(get_test_stats(item))})'
+            return f'{line}{padding} ({self.stats_to_string(get_test_stats(item), stats_width)})'
         else:
             return f'{line}{padding} (last-run:{self.date_to_string(item.last_run)})'
 
     def build_tests(self, test_list: TestList, focus_path: List[str],
                     sort_key: Callable, visibility=None, max_depth=0,
-                    column_width_percentile=1.0, column_width_factor=1.0):
+                    column_width_percentile=1.0, column_width_factor=1.0,
+                    stats_width=4):
         lines = self.build_items(test_list, test_list.root, [ROOT_NAME] + focus_path, sort_key,
                                  visibility=visibility, max_depth=max_depth, hide_parent=True)
         if len(lines) == 0:
@@ -342,7 +350,7 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         max_index = len(line_lengths) - 1
         max_length = int(line_lengths[min(max_index, int(max_index*column_width_percentile))]*column_width_factor)
 
-        return [(item.full_name, self.build_info(item, line, max_length)) for item, line in lines], max_length
+        return [(item.full_name, self.build_info(item, line, max_length, stats_width)) for item, line in lines], max_length
 
 
 class TestManagerTextCmd:
