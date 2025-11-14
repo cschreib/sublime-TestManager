@@ -240,12 +240,12 @@ def run(command: List[str], queue='default', stdin=None, cwd=None, env={}, strea
             if ignore_errors:
                 return (0, '', '')
             sublime.error_message(get_error(command[0]))
-            return JobError("[%s,%s,%s] Could not execute command: %s" % (threading.get_ident(), task_id, e))
+            return JobError("[%s,%s,%s] Could not execute command: %s" % (queue.name, threading.get_ident(), task_id, e))
         except UnicodeDecodeError as e:
             if ignore_errors:
                 return (0, '', '')
             sublime.error_message(get_decoding_error(command[0], encoding, fallback_encoding))
-            return JobError("[%s,%s,%s] Could not execute command: %s" % (threading.get_ident(), task_id, command))
+            return JobError("[%s,%s,%s] Could not execute command: %s" % (queue.name, threading.get_ident(), task_id, command))
 
     return worker_run(partial(job, command, queue, stdin, cwd, environment, stream_reader,
                               ignore_errors, encoding, fallback_encoding, task_id), queue, task_id=task_id)
