@@ -2,14 +2,14 @@
 import os
 import logging
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 from typing import Callable, Optional, List, Dict, Tuple
 
 import sublime
 from sublime_plugin import (ApplicationCommand, WindowCommand, TextCommand, EventListener)
 
-from .util import (find_views_for_data, SettingsHelper, readable_date_delta)
+from .util import (find_views_for_data, SettingsHelper, readable_date_delta, readable_duration)
 from .helpers import TestDataHelper
 from .test_data import (ROOT_NAME, TestList, get_test_stats, TestItem, TestData,
                         RunStatus, test_name_to_path, test_path_to_name)
@@ -319,6 +319,9 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         else:
             return readable_date_delta(date)
 
+    def duration_to_string(self, duration: Optional[timedelta]) -> str:
+        return '--' if duration is None else readable_duration(duration)
+
     def stats_to_string(self, stats, stats_width: int) -> str:
         stats['failed'] += stats['crashed']
         stats['not_run'] += stats['stopped']
@@ -334,7 +337,7 @@ class TestManagerListBuilder(TestDataHelper, SettingsHelper):
         if item.children is not None:
             return f'{line}{padding} ({self.stats_to_string(get_test_stats(item), stats_width)})'
         else:
-            return f'{line}{padding} (last-run:{self.date_to_string(item.last_run)})'
+            return f'{line}{padding} (last-run:{self.date_to_string(item.last_run):<14} | duration:{self.duration_to_string(item.last_duration)})'
 
     def build_tests(self, test_list: TestList, focus_path: List[str],
                     sort_key: Callable, visibility=None, max_depth=0,

@@ -3,7 +3,7 @@ import datetime
 import sys
 from os import path
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import sublime
@@ -176,6 +176,29 @@ def readable_date_delta(from_date: datetime, until_date: Optional[datetime] = No
         return '%d minute%s ago' % (delta_minutes, plur(delta_minutes))
     else:
         return '%d second%s ago' % (delta.seconds, plur(delta.seconds))
+
+def readable_duration(duration: timedelta):
+    # Durations are stored as microseconds, seconds and days; we have to get hours and minutes ourselves
+    duration_minutes = duration.seconds // 60
+    duration_hours = duration_minutes // 60
+    duration_minutes = duration_minutes % 60
+    duration_milliseconds = duration.microseconds // 1000
+    duration_microseconds = duration.microseconds % 1000
+
+    def plur(it: int):
+        return '' if it == 1 else 's'
+
+    if duration.days:
+        return f'{duration.days} day{plur(duration.days)}'
+    if duration_hours:
+        return f'{duration_hours} hour{plur(duration_hours)}'
+    if duration_minutes:
+        return f'{duration_minutes} minute{plur(duration_minutes)}'
+    if duration.seconds:
+        return f'{duration.seconds} second{plur(duration.seconds)}'
+    if duration_milliseconds:
+        return f'{duration_milliseconds} millisecond{plur(duration_milliseconds)}'
+    return f'{duration_microseconds} microseconds{plur(duration_microseconds)}'
 
 # settings helpers
 

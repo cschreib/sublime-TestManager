@@ -70,6 +70,14 @@ contexts:
       captures:
         1: comment.other.test-list.tests.last-run
         2: string.other.test-list.time-delta
+    - match: (duration:)([\w\s]+)
+      captures:
+        1: comment.other.test-list.tests.duration
+        2: string.other.test-list.time-delta
+    - match: (duration:)(--)
+      captures:
+        1: comment.other.test-list.tests.duration
+        2: string.other.test-list.time-delta
     - match: \s*\|\s*
       scope: comment.test-list.stats.separator
 

@@ -4,7 +4,7 @@ import time
 import copy
 import enum
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Set
 import sqlite3
 from contextlib import closing
@@ -41,6 +41,12 @@ def date_from_db(data: Optional[str]) -> Optional[datetime]:
         return None
 
     return datetime.fromisoformat(data)
+
+def duration_from_db(data: Optional[float]) -> Optional[timedelta]:
+    if data is None:
+        return None
+
+    return timedelta(seconds=data)
 
 
 def test_name_to_path(name: str):
@@ -98,10 +104,12 @@ class StartedTest:
 
 
 class FinishedTest:
-    def __init__(self, full_name: List[str] = [], status=TestStatus.NOT_RUN, message=''):
+    def __init__(self, full_name: List[str] = [], status=TestStatus.NOT_RUN, message='',
+                 finished_time=None):
         self.full_name = full_name
         self.status = status
         self.message = message
+        self.finished_time = datetime.now() if finished_time is None else finished_time
 
 
 class TestOutput:
@@ -121,9 +129,11 @@ class FinishedRun:
 
 
 class TestItem:
-    def __init__(self, name='', full_name='', discovery_id=0, suite_id='', run_id='', report_id='', location=None,
+    def __init__(self, name='', full_name='', discovery_id=0, suite_id='', run_id='', report_id='',
+                 location: Optional[TestLocation] = None,
                  last_status=TestStatus.NOT_RUN, run_status=RunStatus.NOT_RUNNING,
-                 last_run=None, children: Optional[Dict] = None):
+                 last_run: Optional[datetime] = None, last_duration: Optional[timedelta] = None,
+                 children: Optional[Dict] = None):
         self.name: str = name
         self.full_name: str = full_name
         self.discovery_id: int = discovery_id
@@ -134,6 +144,7 @@ class TestItem:
         self.last_status: TestStatus = last_status
         self.run_status: RunStatus = run_status
         self.last_run: Optional[datetime] = last_run
+        self.last_duration: Optional[timedelta] = last_duration
         self.children: Optional[Dict[str, TestItem]] = children
 
     @staticmethod
@@ -148,10 +159,11 @@ class TestItem:
                         last_status=TestStatus[row['last_status'].upper()],
                         run_status=RunStatus[row['run_status'].upper()],
                         last_run=date_from_db(row['last_run']),
+                        last_duration=duration_from_db(row['last_duration']),
                         children=None if row['leaf'] else {})
 
     def save(self, con: sqlite3.Connection):
-        con.execute('INSERT OR REPLACE INTO tests VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        con.execute('INSERT OR REPLACE INTO tests VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     (self.full_name,
                      self.name,
                      self.discovery_id,
@@ -164,7 +176,8 @@ class TestItem:
                      self.last_status.name.lower(),
                      self.run_status.name.lower(),
                      self.last_run,
-                     self.children is None))
+                     self.children is None,
+                     self.last_duration.total_seconds() if self.last_duration else None))
 
         if self.children is not None:
             for c in self.children.values():
@@ -209,6 +222,8 @@ class TestItem:
     def update_from_finished(self, test: FinishedTest):
         self.last_status = test.status
         self.run_status = RunStatus.NOT_RUNNING
+        if self.last_run is not None:
+            self.last_duration = test.finished_time - self.last_run
 
     def recompute_status(self):
         if self.children is None:
@@ -273,37 +288,9 @@ class TestList:
 
         return tests
 
-    @staticmethod
-    def is_initialised(location):
-        return os.path.exists(os.path.join(location, DB_FILE))
-
     def save(self, refresh_hints=[]):
-        os.makedirs(self.location, exist_ok=True)
         with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
             with con:
-                tables = [r[0] for r in con.execute('SELECT name FROM sqlite_master').fetchall()]
-                if not 'tests' in tables:
-                    con.execute("""CREATE TABLE tests(
-                        full_name TEXT PRIMARY KEY,
-                        name TEXT,
-                        discovery_id INT,
-                        suite_id TEXT,
-                        run_id TEXT,
-                        report_id TEXT,
-                        location_executable TEXT,
-                        location_file TEXT,
-                        location_line INT,
-                        last_status TEXT,
-                        run_status TEXT,
-                        last_run TIMESTAMP,
-                        leaf BOOL
-                        )""")
-
-                    con.execute("""CREATE TABLE test_ouputs(
-                        full_name TEXT PRIMARY KEY,
-                        output TEXT
-                        )""")
-
                 if len(refresh_hints) == 0:
                     con.execute("""DELETE FROM tests""")
 
@@ -456,6 +443,8 @@ class TestList:
                 return '' if output is None else output[0]
 
 
+DB_VERSION = 2
+
 class TestMetaData:
     def __init__(self, location: str):
         self.location = location
@@ -485,41 +474,103 @@ class TestMetaData:
     def is_initialised(location):
         return os.path.exists(os.path.join(location, DB_FILE))
 
+    @staticmethod
+    def init(location):
+        os.makedirs(location, exist_ok=True)
+        db_path = os.path.join(location, DB_FILE)
+
+        try:
+            os.remove(db_path)
+        except:
+            pass
+
+        with closing(sqlite3.connect(db_path)) as con:
+            with con:
+                con.execute("""CREATE TABLE meta(
+                    last_discovery TIMESTAMP,
+                    running BOOL,
+                    discovering BOOL,
+                    version INT
+                    )""")
+
+                con.execute('INSERT INTO meta VALUES (?,?,?,?)', (None, False, False, DB_VERSION))
+
+                con.execute("""CREATE TABLE tests(
+                    full_name TEXT PRIMARY KEY,
+                    name TEXT,
+                    discovery_id INT,
+                    suite_id TEXT,
+                    run_id TEXT,
+                    report_id TEXT,
+                    location_executable TEXT,
+                    location_file TEXT,
+                    location_line INT,
+                    last_status TEXT,
+                    run_status TEXT,
+                    last_run TIMESTAMP,
+                    leaf BOOL,
+                    last_duration FLOAT
+                    )""")
+
+                con.execute("""CREATE TABLE test_ouputs(
+                    full_name TEXT PRIMARY KEY,
+                    output TEXT
+                    )""")
+
+    @staticmethod
+    def migrate(location):
+        with closing(sqlite3.connect(os.path.join(location, DB_FILE))) as con:
+            with con:
+                con.row_factory = sqlite3.Row
+
+                # Check everything is in order.
+                tables = con.execute('SELECT name FROM sqlite_master').fetchall()
+                if tables is None:
+                    raise Exception('No tables table')
+
+                table_names = [r[0] for r in tables]
+                if not 'meta' in table_names:
+                    raise Exception('Missing meta table')
+
+                output: sqlite3.Row = con.execute('SELECT * from meta').fetchone()
+                if output is None:
+                    raise Exception('Meta table is empty')
+
+                # Extract current DB version.
+                previous_version = 1
+                if 'version' in output.keys():
+                    previous_version = output['version']
+
+                if previous_version == DB_VERSION:
+                    logger.info(f'Database is up-to-date')
+                    return
+
+                logger.info(f'Migrating DB from version {previous_version} to {DB_VERSION}...')
+
+                # Migrate older versions.
+                if previous_version == 1:
+                    con.execute('ALTER TABLE meta ADD COLUMN version INT')
+                    con.execute('ALTER TABLE tests ADD COLUMN last_duration FLOAT')
+
+                con.execute('UPDATE meta SET version=?', (DB_VERSION, ))
+
+        logger.info(f'Migration of DB from version {previous_version} to {DB_VERSION} successful')
+
+
     def save(self):
         os.makedirs(self.location, exist_ok=True)
         with closing(sqlite3.connect(os.path.join(self.location, DB_FILE))) as con:
             with con:
-                tables = [r[0] for r in con.execute('SELECT name FROM sqlite_master').fetchall()]
-                if not 'meta' in tables:
-                    con.execute("""CREATE TABLE meta(
-                        last_discovery TIMESTAMP,
-                        running BOOL,
-                        discovering BOOL
-                        )""")
-                    con.execute('INSERT INTO meta VALUES (?,?,?)', (
+                con.execute("""UPDATE meta SET
+                    last_discovery=?,
+                    running=?,
+                    discovering=?
+                    """,
+                    (
                         self.last_discovery,
                         self.running,
                         self.discovering
                     ))
-                else:
-                    con.execute("""UPDATE meta SET
-                        last_discovery=?,
-                        running=?,
-                        discovering=?
-                        """,
-                        (
-                            self.last_discovery,
-                            self.running,
-                            self.discovering
-                        ))
-
-
-def clear_test_data(location):
-    try:
-        db_path = os.path.join(location, DB_FILE)
-        os.remove(db_path)
-    except:
-        pass
 
 
 class TestData:
@@ -539,10 +590,18 @@ class TestData:
             return
 
         try:
+            self.migrate()
+        except Exception as e:
+            logger.error(f'could not migrate existing DB, creating a new one', exc_info=e)
+            self.init()
+            return
+
+        try:
             self.load()
         except Exception as e:
-            logger.error('could not load existing DB, creating a new one')
+            logger.error(f'could not load existing DB, creating a new one', exc_info=e)
             self.init()
+            return
 
         if self.meta.running:
             # Plugin was reloaded or SublimeText killed while running tests, so we didn't
@@ -562,7 +621,10 @@ class TestData:
             self.commit(meta=self.meta)
 
     def is_initialised(self):
-        return TestMetaData.is_initialised(self.location) and TestList.is_initialised(self.location)
+        return TestMetaData.is_initialised(self.location)
+
+    def migrate(self):
+        return TestMetaData.migrate(self.location)
 
     def load(self):
         try:
@@ -575,7 +637,8 @@ class TestData:
             raise
 
     def init(self):
-        clear_test_data(self.location)
+        TestMetaData.init(self.location)
+
         self.tests_updated = True
         self.meta_updated = True
         self.commit(meta=TestMetaData(self.location), tests=TestList(self.location))
