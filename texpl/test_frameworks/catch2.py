@@ -122,17 +122,23 @@ class OutputParser(common.XmlParser):
             file = self.current_expression["filename"]
             line = self.current_expression["line"]
             result = 'FAILED' if self.current_expression["success"] == 'false' else 'PASSED'
-            check = self.current_expression["type"]
+            check = self.current_expression.get("type", None)
             sections = ''.join([f'  in section "{s["name"]}"\n' for s in self.current_sections])
             infos = ''.join([f'  with "{i}"\n' for i in self.current_infos])
+
+            details = ''
+            if check is not None:
+                details = (f'Expected: {check}({original})\n' +
+                           f'Actual:   {expanded}\n')
+            else:
+                details = f'Location: {original}'
 
             self.test_data.notify_test_output(
                 TestOutput(self.current_test, sep +
                            f'{result}\n' +
                            f'  at {file}:{line}\n' +
                            f'{sections}{infos}\n' +
-                           f'Expected: {check}({original})\n' +
-                           f'Actual:   {expanded}\n' +
+                           f'{details}\n' +
                            sep))
 
             self.has_output = True
