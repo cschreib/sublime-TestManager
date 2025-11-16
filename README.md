@@ -63,19 +63,21 @@ Inside the `"test_suites"` array, you can list as many test suites as you need. 
     - `"catch2"`: Catch2 or snitch (C++).
     - `"pytest"`: pytest or unittest (Python).
     - `"cargo"`: cargo test (Rust).
- - "path_prefix_style": This determines how file paths are displayed in the test list. This includes for example the paths to test executables, or the paths to test files. Possible values:
+ - `"path_prefix_style"`: This determines how file paths are displayed in the test list. This includes for example the paths to test executables, or the paths to test files. Possible values:
     - `"full"`: (default) Show the full file paths, relative to the root of the project.
     - `"basename"`: Show only the file name.
     - `"none"`: Do not show file paths.
  - `"custom_prefix"`: If set, this introduces an additional prefix to all tests discovered within this test suite. Can be useful to group tests from similar frameworks (e.g., same language) or to ensure that tests from different suites are well separated. The default is `null`, which does not add any prefix.
 
 The rest of the fields are specific to the chosen test framework, however there are a number of fields that are currently common to all test frameworks:
+
  - `"args"`: A list of additional command-line arguments that will be passed to the test framework on each invocation (for whatever purpose). Default to an empty list.
  - `"discovery_args"`: A list of additional command-line arguments that will be passed to the test framework, only during test discovery. This is added to the list in `"args"`. Default to an empty list.
  - `"run_args"`: A list of additional command-line arguments that will be passed to the test framework, only during test execution. This is added to the list in `"args"`. Default to an empty list.
  - `"env"`: A dictionary of `{"VARIABLE": "value"}` to set environment variables on each invocation (for whatever purpose), and added to your operating system's default set of environment variables. Defaults to an empty dictionary.
  - `"cwd"`: The path to the current working directory to use when invoking the test framework. If this is supplied as an absolute path, it is used as is. If this is supplied as a relative path, it is interpreted as relative to the root of the project. Defaults to the root of the project.
  - `"parser"`: Specify which test parser to use. Possible values:
+
     - `"default"`: (default) use the default for the framework.
     - `"teamcity"`: parse TeamCity service messages.
 
@@ -94,9 +96,10 @@ The following field can also be set:
 The following field can also be set:
 
  - `"python"`: The name or path to the Python executable to use when running the tests. If this is supplied as an absolute path, or just as an executable name with no path, it is used as is. If this is supplied as a relative path, it is interpreted as relative to the root of the project. If this is supplied as a list, then it is assumed to be a list of command-line entries and will be used as is; this can be used for example to use a conda environment (replacing `my-environment' with the name of your environment):
-    ```
+
+```json
     "python": ["conda", "run", "--no-capture-output", "-n", "my-environment", "python"]
-    ```
+```
 
 
 ### Cargo
