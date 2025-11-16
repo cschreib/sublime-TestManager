@@ -134,6 +134,7 @@ Each test is described by the following fields:
  - `last_status`: This is the outcome (pass/fail) of the test for its last run. For groups, this is computed from all the children.
  - `run_status`: This is the current state of the test; whether it is running or queued. This does not hold the test outcome (pass/fail). For groups, this is computed from all the children.
  - `last_run`: This is the date and time at which the test was last run. If the test was never run, this is `None`. For groups, this is `None`.
+ - `last_duration`: This is the execution duration (in seconds) of this test during its last run. If the test was never run, this is `None`. For groups, this is `None`.
  - `children`: For groups, this is the list of the group's children. For tests, this is `None`.
 
 NB: The above describes the data model in Python. When the test data is stored on disk, it is stored in an SQLite database, and each test is then a row in a table. Nodes of the tree are not stored on disk, because they do not contain any new information (their content is entirely derived from that of their respective children).
