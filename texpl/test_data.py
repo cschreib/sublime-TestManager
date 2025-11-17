@@ -445,6 +445,15 @@ class TestList:
 
 DB_VERSION = 2
 
+def clear_test_data(location: str):
+    db_path = os.path.join(location, DB_FILE)
+
+    try:
+        os.remove(db_path)
+    except:
+        pass
+
+
 class TestMetaData:
     def __init__(self, location: str):
         self.location = location
@@ -462,7 +471,7 @@ class TestMetaData:
         return data
 
     @staticmethod
-    def from_location(location):
+    def from_location(location: str):
         with closing(sqlite3.connect(os.path.join(location, DB_FILE))) as con:
             with con:
                 con.row_factory = sqlite3.Row
@@ -471,19 +480,15 @@ class TestMetaData:
                 return TestMetaData.from_row(location, row)
 
     @staticmethod
-    def is_initialised(location):
+    def is_initialised(location: str):
         return os.path.exists(os.path.join(location, DB_FILE))
 
     @staticmethod
-    def init(location):
+    def init(location: str):
+        clear_test_data(location)
         os.makedirs(location, exist_ok=True)
+
         db_path = os.path.join(location, DB_FILE)
-
-        try:
-            os.remove(db_path)
-        except:
-            pass
-
         with closing(sqlite3.connect(db_path)) as con:
             with con:
                 con.execute("""CREATE TABLE meta(
