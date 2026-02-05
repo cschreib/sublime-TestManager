@@ -101,6 +101,8 @@ The following field can also be set:
     "python": ["conda", "run", "--no-capture-output", "-n", "my-environment", "python"]
 ```
 
+ - `"output_capture"`: When set to `true`, expect standard output/error to be captured by Pytest and emitted at the end of the test. This is the default behaviour of Pytest. Set to `false` if you have disabled capture in Pytest (option `-s` or `--capture=no`).
+
 
 ### Cargo
 

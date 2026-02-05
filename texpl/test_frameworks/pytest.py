@@ -29,10 +29,11 @@ parser_logger = logging.getLogger('TestManagerParser.pytest')
 
 
 class OutputParser:
-    def __init__(self, test_data: TestData, suite_id: str):
+    def __init__(self, test_data: TestData, suite_id: str, output_captured=True):
         self.test_data = test_data
         self.test_list = test_data.get_test_list()
         self.suite_id = suite_id
+        self.output_captured = output_captured
         self.current_test: Optional[List[str]] = None
         self.current_status: Optional[TestStatus] = None
 
@@ -48,6 +49,8 @@ class OutputParser:
     def feed(self, line: str):
         parser_logger.debug(line.rstrip())
         if not line.startswith(PYTEST_STATUS_HEADER):
+            if self.current_test and not self.output_captured:
+                self.test_data.notify_test_output(TestOutput(self.current_test, line))
             return
 
         line = line.replace(PYTEST_STATUS_HEADER, '')
@@ -100,6 +103,7 @@ class PyTest(TestFramework):
                  args: List[str] = [],
                  discover_args: List[str] = [],
                  run_args: List[str] = [],
+                 output_captured=True,
                  parser: str = 'default'):
         super().__init__(suite)
         self.python = python
@@ -109,6 +113,7 @@ class PyTest(TestFramework):
         self.discover_args = discover_args
         self.run_args = run_args
         self.parser = parser
+        self.output_captured = output_captured
 
     @staticmethod
     def get_default_settings():
@@ -119,7 +124,8 @@ class PyTest(TestFramework):
             'args': [],
             'discover_args': ['--collect-only'],
             'run_args': [],
-            'parser': 'default'
+            'parser': 'default',
+            'output_captured': True
         }
 
     @staticmethod
@@ -132,7 +138,8 @@ class PyTest(TestFramework):
                       args=settings['args'],
                       discover_args=settings['discover_args'],
                       run_args=settings['run_args'],
-                      parser=settings['parser'])
+                      parser=settings['parser'],
+                      output_captured=settings['output_captured'])
 
     def get_python(self):
         if isinstance(self.python, list):
@@ -229,7 +236,7 @@ class PyTest(TestFramework):
                                            executable='pytest')
 
         if parser is None:
-            parser = OutputParser(self.test_data, self.suite.suite_id)
+            parser = OutputParser(self.test_data, self.suite.suite_id, output_captured=self.output_captured)
 
         run_args = self.get_pytest() + self.run_args + self.args + test_ids
         process.get_output_streamed(run_args,
